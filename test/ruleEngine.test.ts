@@ -14,6 +14,7 @@ import {
   firstTransactionOlderThan,
 } from "../src/rules";
 import { IBlockchainData } from "../src/types";
+import { MockNFT } from "../typechain-types/MockNFT";
 
 /**
  * We assume the Foundry build artifacts are in `out/MockNFT.sol/MockNFT.json`
@@ -22,7 +23,7 @@ import { IBlockchainData } from "../src/types";
  */
 const MOCKNFT_ARTIFACT = path.join(
   __dirname,
-  "../..",   // go up to project root
+  "../",   // go up to project root
   "out",
   "MockNFT.sol",
   "MockNFT.json"
@@ -51,38 +52,38 @@ describe("RuleEngine with Foundry Anvil", function() {
 
     // 3. Deploy the MockNFT contract using the compiled artifact
     const artifact = JSON.parse(fs.readFileSync(MOCKNFT_ARTIFACT, "utf-8"));
+
     const factory = new ethers.ContractFactory(
       artifact.abi,
       artifact.bytecode.object, // Foundry stores bytecode in .object
       owner
     );
 
-    const mockNftContract = await factory.deploy();       // Deploy
-    await mockNftContract.waitForDeployment();           // Wait for it to be mined
+    const untypedContract = await factory.deploy();
+    const deployment = await untypedContract.waitForDeployment();
+    const mockNftContract = untypedContract as unknown as MockNFT;
     mockNftAddress = await mockNftContract.getAddress(); // Get the deployed address
 
     // Then you can interact with it:
     const tx = await mockNftContract.mint(await other.getAddress());
-    await tx.wait();
-  });
+    const confirmation = await tx.wait();
+  }).timeout(10_000);
 
   it("should evaluate rules correctly against on-chain data", async function() {
     // 5. Gather chain data for `other`
     const otherAddr = await other.getAddress();
 
-    // a) walletBalance in Wei (bigint)
-    const walletBalanceBn = await provider.getBalance(otherAddr);
-    const walletBalance = walletBalanceBn.toBigInt();
+    // a. walletBalance in Wei (bigint)
+    const walletBalance = await provider.getBalance(otherAddr);
 
-    // b) contractBalance in Wei (bigint)
-    const contractBalanceBn = await provider.getBalance(mockNftAddress);
-    const contractBalance = contractBalanceBn.toBigInt();
+    // b. contractBalance in Wei (bigint)
+    const contractBalance = await provider.getBalance(mockNftAddress);
 
-    // c) number of transactions from `other` (getTransactionCount = nonce)
+    // c. number of transactions from `other` (getTransactionCount = nonce)
     const txCountBn = await provider.getTransactionCount(otherAddr);
     const numTransactions = BigInt(txCountBn);
 
-    // d) Check NFT ownership
+    // d. Check NFT ownership
     //    The minted token should be #1 if the contract increments from 0 or 1
     const tokenId = BigInt(1);
     // create an interface to call ownerOf(tokenId)
@@ -95,7 +96,7 @@ describe("RuleEngine with Foundry Anvil", function() {
     const actualOwner = await mockNftContract.ownerOf(tokenId);
     const userOwnsIt = actualOwner.toLowerCase() === otherAddr.toLowerCase();
 
-    // e) We'll just assume firstTransactionDate was "10 days ago" for the test
+    // e. We'll just assume firstTransactionDate was "10 days ago" for the test
     //    (In a real scenario, you'd parse actual block timestamps.)
     const firstTxDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
 
@@ -147,5 +148,5 @@ describe("RuleEngine with Foundry Anvil", function() {
     // txCount might be 0. So that might fail. 
     // We'll just expect it to exist here, but let's see:
     expect(txRule).to.not.be.undefined;
-  });
+  }).timeout(10_000);
 });
