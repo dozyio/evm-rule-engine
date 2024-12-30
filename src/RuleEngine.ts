@@ -1,5 +1,5 @@
 // src/RuleEngine.ts
-import { IBlockchainData, Rule, RuleResult } from "./types";
+import { EvaluateResult, IBlockchainData, Rule, RuleResult } from "./types";
 
 export class RuleEngine {
   private rules: Rule[] = [];
@@ -12,23 +12,30 @@ export class RuleEngine {
     this.rules.push(...rules);
   }
 
-  /**
-   * Evaluate all rules, returning an array of RuleResult.
-   * If a rule throws, catch it and record an error.
-   */
-  public async evaluate(data: IBlockchainData): Promise<RuleResult[]> {
+  public async evaluate(data: IBlockchainData): Promise<EvaluateResult> {
     const results: RuleResult[] = [];
+
+    let passed = true
 
     for (const rule of this.rules) {
       try {
         const result = rule(data);
         if (result instanceof Promise) {
           // If rule is async, await it
-          results.push(await result);
+          const r = await result
+          if (r.passed === false) {
+            passed = false
+          }
+          results.push(r);
         } else {
+          if (result.passed === false) {
+            passed = false
+          }
+
           results.push(result);
         }
       } catch (err: any) {
+        passed = false
         results.push({
           name: "Unnamed Rule",
           passed: false,
@@ -37,6 +44,9 @@ export class RuleEngine {
       }
     }
 
-    return results;
+    return {
+      ruleResults: results,
+      result: passed
+    }
   }
 }

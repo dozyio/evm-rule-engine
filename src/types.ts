@@ -25,6 +25,11 @@ export interface RuleResult {
   error?: string;
 }
 
+export interface EvaluateResult {
+  ruleResults: RuleResult[]
+  result: boolean
+}
+
 /**
  * A rule is either synchronous or async. It accepts IBlockchainData
  * and returns (or resolves) a RuleResult.
