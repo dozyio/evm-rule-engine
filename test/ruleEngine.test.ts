@@ -177,29 +177,6 @@ describe("Rule Tests", function() {
     });
   });
 
-  // Example: firstTransactionOlderThan
-  // We might need an indexer or some logic to find the creation date,
-  // but we'll just demonstrate the test structure:
-  describe("firstTransactionOlderThan Rule", function() {
-    it("should pass/fail based on the approximate created date", async function() {
-      // For demonstration, we do a naive approach in the rule
-      const rule = async (address: string, config: RuleConfig) => {
-        // e.g., pretend user was created 20 days ago
-        const creationDate = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
-        const diffDays = (Date.now() - creationDate.getTime()) / (1000 * 3600 * 24);
-        const minDays = 10;
-        const passed = diffDays >= minDays;
-        return {
-          name: `firstTransactionOlderThan(${minDays} days)`,
-          passed,
-        };
-      };
-
-      const result = await rule(signer0Addr, defaultConfig);
-      expect(result.passed).to.be.true;
-    });
-  });
-
   describe("Multiple Rules", function() {
     it("should evaluate multiple rules with RuleEngine", async function() {
       const engine = new RuleEngine();

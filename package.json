@@ -1,4 +1,9 @@
 {
+  "name": "evm-rule-engine",
+  "version": "0.0.1",
+  "description": "A rule engine for EVM accounts and contract",
+  "author": "dozyio",
+  "license": "MIT",
   "scripts": {
     "typechain": "typechain --target ethers-v6 --out-dir typechain-types 'out/**/*.json'",
     "build:contract": "forge build",
