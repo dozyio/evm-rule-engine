@@ -5,6 +5,16 @@ export interface RuleConfig {
   network?: string;    // optional label or chain ID
 }
 
+export interface RuleDefinition {
+  type: string;
+  params: Record<string, any>;
+}
+
+export interface BuiltRule {
+  rule: Rule;
+  definition: RuleDefinition;
+}
+
 /**
  * The result of a single rule check.
  */

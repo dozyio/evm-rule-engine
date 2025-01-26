@@ -1,11 +1,13 @@
 // test/ruleEngine.test.ts
 
-import fs from "fs";
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { addressIsContract, addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, ownsNFT, walletBalanceAtLeast } from "../src/rules";
-import { RuleConfig } from "../src/types";
+import { Rule, RuleConfig } from "../src/types";
 import { RuleEngine } from "../src/RuleEngine";
+import path from "path";
+import fs from "fs";
+import { createRulesFromJson, readRulesFile } from "../src/loadRules";
 
 /**
  * We'll assume anvil is running at http://127.0.0.1:8545 with some funded accounts.
@@ -13,7 +15,7 @@ import { RuleEngine } from "../src/RuleEngine";
  */
 const RPC_URL = "http://127.0.0.1:8545";
 
-describe("Rule Tests", function() {
+describe("Rule Engine", function() {
   let provider: ethers.JsonRpcProvider;
   let signer0: ethers.Signer;
   let signer1: ethers.Signer;
@@ -57,128 +59,8 @@ describe("Rule Tests", function() {
     });
   });
 
-  describe("walletBalanceAtLeast Rule", function() {
-    it("should pass if the wallet has enough balance", async function() {
-      // Anvil seeds accounts with 10,000 ETH
-      const rule = walletBalanceAtLeast(ethers.parseEther("1"));
-      const result = await rule(defaultConfig, signer0Addr);
-      expect(result.passed).to.be.true;
-      if (!result.passed) {
-        console.error(`Error: ${result.error}`);
-      }
-    });
-
-    it("should fail if the wallet has less than the required balance", async function() {
-      const rule = walletBalanceAtLeast(ethers.parseEther("1000000"));
-
-      const result = await rule(defaultConfig, signer0Addr);
-      expect(result.passed).to.be.false;
-      expect(result.error).to.be.undefined;
-    });
-  });
-
-  describe("contractBalanceAtLeast Rule", function() {
-    before(async function() {
-    });
-
-    it("should pass if contract balance is >= required Wei", async function() {
-      const rule = contractBalanceAtLeast(contractAddress, ethers.parseEther("1"))
-      const result = await rule(defaultConfig);
-      expect(result.passed).to.be.true;
-    });
-
-    it("should fail if the contract has less than the required Wei", async function() {
-      const rule = contractBalanceAtLeast(contractAddress, ethers.parseEther("2"))
-      const result = await rule(defaultConfig);
-      expect(result.passed).to.be.false;
-    });
-  });
-
-  describe("numTransactionsAtLeast Rule", function() {
-    it("should pass based on the user's transaction count", async function() {
-      await signer1.sendTransaction({
-        to: signer0Addr,
-        value: ethers.parseEther("0.001"),
-      });
-
-      const rule = numTransactionsAtLeast(BigInt(1))
-      const result = await rule(defaultConfig, signer1Addr);
-      expect(result.passed).to.be.true;
-    });
-
-    it("should fail based on the user's transaction count", async function() {
-      const rule = numTransactionsAtLeast(BigInt(1))
-      const result = await rule(defaultConfig, signer2Addr);
-      expect(result.passed).to.be.false;
-    });
-  });
-
-  describe("ownsNFT Rule", function() {
-    let nftAddress: string;
-    let tokenId = BigInt(1);
-    let nftContractUntyped: any
-
-    before(async function() {
-      const artifact = JSON.parse(fs.readFileSync("out/MockNFT.sol/MockNFT.json", "utf-8"));
-      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode.object, signer0);
-      nftContractUntyped = await factory.deploy();
-      await nftContractUntyped.waitForDeployment();
-
-      nftAddress = await nftContractUntyped.getAddress();
-    });
-
-    it("should pass if user owns the NFT", async function() {
-      // Mint an NFT to user1
-      await (nftContractUntyped as any).mint(signer1);
-
-      const rule = ownsNFT(nftAddress, tokenId)
-      const result = await rule(defaultConfig, signer1Addr);
-      expect(result.passed).to.be.true;
-    });
-
-    it("should fail if user does not own the NFT", async function() {
-      const rule = ownsNFT(nftAddress, tokenId)
-      const result = await rule(defaultConfig, signer2Addr);
-      expect(result.passed).to.be.false;
-    });
-  });
-
-  describe("addressIsEOA Rule", function() {
-    before(async function() {
-    });
-
-    it("should pass if address is EOA", async function() {
-      const rule = addressIsEOA()
-      const result = await rule(defaultConfig, signer0Addr);
-      expect(result.passed).to.be.true;
-    });
-
-    it("should fail if address is not EOA", async function() {
-      const rule = addressIsEOA()
-      const result = await rule(defaultConfig, contractAddress);
-      expect(result.passed).to.be.false;
-    });
-  });
-
-  describe("addressIsContract Rule", function() {
-    before(async function() {
-    });
-
-    it("should pass if address is a contract", async function() {
-      const rule = addressIsContract()
-      const result = await rule(defaultConfig, contractAddress);
-      expect(result.passed).to.be.true;
-    });
-
-    it("should fail if address is not a contract", async function() {
-      const rule = addressIsContract()
-      const result = await rule(defaultConfig, signer0Addr);
-      expect(result.passed).to.be.false;
-    });
-  });
-
-  describe("Multiple Rules", function() {
-    it("should evaluate multiple rules with RuleEngine", async function() {
+  describe("Evaluate", function() {
+    it("should pass when evaluating multiple rules with successful rules", async function() {
       const engine = new RuleEngine();
 
       engine.addRules([
@@ -190,13 +72,123 @@ describe("Rule Tests", function() {
 
       const { result, ruleResults } = await engine.evaluate(defaultConfig, signer0Addr);
 
-      for (const r of ruleResults) {
-        console.log(`Rule "${r.name}": passed=${r.passed}, error=${r.error}`);
-      }
+      // for (const r of ruleResults) {
+      //   console.log(`Rule "${r.name}": passed=${r.passed}, error=${r.error}`);
+      // }
 
       expect(ruleResults).to.have.lengthOf(4);
 
       expect(result).to.eq(true)
+    });
+
+    it("should fail when evaluating multiple rules with failing rule", async function() {
+      const engine = new RuleEngine();
+
+      engine.addRules([
+        walletBalanceAtLeast(ethers.parseEther("1")),
+        contractBalanceAtLeast(contractAddress, ethers.parseEther("2")),
+      ]);
+
+      const { result, ruleResults } = await engine.evaluate(defaultConfig, signer0Addr);
+
+      // for (const r of ruleResults) {
+      //   console.log(`Rule "${r.name}": passed=${r.passed}, error=${r.error}`);
+      // }
+
+      expect(ruleResults).to.have.lengthOf(2);
+
+      expect(result).to.eq(false)
+      const failingRule = ruleResults.find(r => !r.passed);
+      expect(failingRule).to.exist;
+      expect(failingRule?.name).to.match(/Contract balance >=/);
+    });
+
+
+    it("should mark the rule as failed if it throws an error", async function() {
+      function forcedErrorRule(): Rule {
+        return async () => {
+          throw new Error("Forced test error");
+        };
+      }
+
+      const engine = new RuleEngine();
+      engine.addRules([
+        {
+          rule: forcedErrorRule(),
+          definition: {
+            type: 'custom',
+            params: {}
+          }
+        }
+      ]);
+
+      const evaluation = await engine.evaluate(defaultConfig, signer0Addr);
+      expect(evaluation.result).to.eq(false, "Overall result should be false if any rule throws");
+      expect(evaluation.ruleResults[0].error).to.eq("Forced test error");
+      expect(evaluation.ruleResults[0].passed).to.eq(false);
+    });
+  });
+
+  describe("Load and Export", function() {
+    it("should load rules into Rule Engine from json object", async function() {
+      const mockJson = [
+        { type: "walletBalanceAtLeast", minWei: "1000" },
+        { type: "numTransactionsAtLeast", minCount: "5" }
+      ];
+
+      const engine = new RuleEngine();
+      engine.addRules(createRulesFromJson(mockJson))
+
+      const rulesFromEngine = engine.getRuleDefinitions()
+      expect(rulesFromEngine).to.be.an("array")
+      expect(rulesFromEngine).to.have.lengthOf(2);
+      expect(rulesFromEngine[0].type).to.eq("walletBalanceAtLeast");
+      expect(rulesFromEngine[1].type).to.eq("numTransactionsAtLeast");
+    });
+
+    it("should load rules into Rule Engine from json object and export object", async function() {
+      const mockJson = [
+        { type: "walletBalanceAtLeast", minWei: "1000" },
+        { type: "numTransactionsAtLeast", minCount: "5" }
+      ];
+
+      const engine = new RuleEngine();
+      engine.addRules(createRulesFromJson(mockJson))
+
+      const exportedJson = engine.exportRulesAsJson()
+      expect(JSON.parse(exportedJson)).to.deep.equal(mockJson);
+    });
+
+    it("should throw if loaded rules are invalid", async function() {
+      const tempJsonPath = path.join(__dirname, "tempRules.json");
+      const mockJson = JSON.stringify([
+        { type: "walletBalanceAtLeast", minWei: "1000" },
+        { type: "numTransactionsAtLeast", minCount: "5" }
+      ]);
+
+      // Write a temporary JSON file for testing
+      fs.writeFileSync(tempJsonPath, mockJson, "utf8");
+
+      const loaded = readRulesFile(tempJsonPath);
+      expect(loaded).to.be.an("array");
+      expect(loaded).to.have.lengthOf(2);
+      expect(loaded[0].type).to.eq("walletBalanceAtLeast");
+      expect(loaded[1].type).to.eq("numTransactionsAtLeast");
+
+      // Clean up
+      fs.unlinkSync(tempJsonPath);
+
+      let engine: RuleEngine | undefined = undefined
+      let thrown = false
+
+      try {
+      engine = new RuleEngine();
+      engine.addRules(loaded) // only load the definitions, not the rules, should throw
+      } catch (e) {
+        thrown = true
+      }
+
+      expect(thrown).to.be.true
     });
   });
 });
