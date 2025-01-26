@@ -1,4 +1,4 @@
-// test/individualRules.test.ts
+// test/ruleEngine.test.ts
 
 import fs from "fs";
 import { expect } from "chai";
