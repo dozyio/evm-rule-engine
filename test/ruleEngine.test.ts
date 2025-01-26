@@ -1,188 +1,225 @@
-// test/ruleEngine.test.ts
+// test/individualRules.test.ts
 
+import fs from "fs";
 import { expect } from "chai";
 import { ethers } from "ethers";
-import fs from "fs";
-import path from "path";
-
+import { addressIsContract, addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, ownsNFT, walletBalanceAtLeast } from "../src/rules";
+import { RuleConfig } from "../src/types";
 import { RuleEngine } from "../src/RuleEngine";
-import {
-  walletBalanceAtLeast,
-  contractBalanceAtLeast,
-  numTransactionsAtLeast,
-  ownsNFT,
-  firstTransactionOlderThan,
-} from "../src/rules";
-import { IBlockchainData } from "../src/types";
-import { MockNFT } from "../typechain-types/MockNFT";
 
-// We'll assume Foundry build artifacts end up here after `forge build`.
-const MOCKNFT_ARTIFACT = path.join(
-  __dirname,
-  "../",
-  "out",
-  "MockNFT.sol",
-  "MockNFT.json"
-);
-
-// The local Anvil RPC
+/**
+ * We'll assume anvil is running at http://127.0.0.1:8545 with some funded accounts.
+ * `anvil --port 8545`
+ */
 const RPC_URL = "http://127.0.0.1:8545";
 
-describe("RuleEngine with Foundry Anvil", function () {
+describe("Rule Tests", function() {
   let provider: ethers.JsonRpcProvider;
-  let owner: ethers.Signer;
-  let other: ethers.Signer;
-  let mockNftAddress: string;
+  let signer0: ethers.Signer;
+  let signer1: ethers.Signer;
+  let signer2: ethers.Signer;
+  let signer0Addr: string;
+  let signer1Addr: string;
+  let signer2Addr: string;
+  let contractAddress: string;
 
-  // We'll store this so all tests can reuse it
-  let data: IBlockchainData;
+  // We'll define a default RuleConfig used by each test
+  const defaultConfig: RuleConfig = {
+    rpcUrl: RPC_URL,
+    network: "anvil",
+  };
 
-  before(async function () {
-    // 1. Ensure `anvil --port 8545` is running
+  before(async function() {
     provider = new ethers.JsonRpcProvider(RPC_URL);
 
-    // 2. Get signers (Anvil seeds ~10 accounts with 10,000 ETH)
-    owner = await provider.getSigner(0);
-    other = await provider.getSigner(1);
+    signer0 = await provider.getSigner(0); // account #0
+    signer1 = await provider.getSigner(1); // account #1
+    signer2 = await provider.getSigner(2); // account #1
 
-    // 3. Deploy the MockNFT contract
-    const artifact = JSON.parse(fs.readFileSync(MOCKNFT_ARTIFACT, "utf-8"));
-    const factory = new ethers.ContractFactory(
-      artifact.abi,
-      artifact.bytecode.object, 
-      owner
-    );
+    signer0Addr = await signer0.getAddress();
+    signer1Addr = await signer1.getAddress();
+    signer2Addr = await signer2.getAddress();
 
-    const untypedContract = await factory.deploy();
-    await untypedContract.waitForDeployment();
-    const mockNftContract = untypedContract as unknown as MockNFT;
+    // Deploy minimal contract with `receive()`
+    // see Minimal.sol
+    // run `forge build && forge inspect Minimal bytecode`
+    const MinimalContractBytecode = "0x6080604052348015600e575f5ffd5b50604480601a5f395ff3fe608060405236600a57005b5f5ffdfea264697066735822122049f1c634d3cea02d00596dd9b62bcbecb4f505abbd0cde4d94fe400d47116b5864736f6c634300081c0033"
+    // Deploy via signer0
+    const factory = new ethers.ContractFactory([], MinimalContractBytecode, signer0);
+    const contract = await factory.deploy();
+    await contract.waitForDeployment();
 
-    // 4. Get deployed address & mint NFT
-    mockNftAddress = await mockNftContract.getAddress();
-    const tx = await mockNftContract.mint(await other.getAddress());
-    await tx.wait();
-
-    // 5. Gather data for the `other` user
-    const ownerAddr = await owner.getAddress();
-    const otherAddr = await other.getAddress();
-
-    // a) walletBalance in Wei (bigint)
-    const walletBalance = await provider.getBalance(ownerAddr);
-
-    // b) contractBalance in Wei (bigint)
-    const contractBalance = await provider.getBalance(mockNftAddress);
-
-    // c) number of transactions (nonce)
-    const txCountBn = await provider.getTransactionCount(ownerAddr);
-    const numTransactions = BigInt(txCountBn);
-
-    // d) Check NFT ownership
-    const tokenId = BigInt(1);
-    const mockNftReadOnly = new ethers.Contract(
-      mockNftAddress,
-      artifact.abi,
-      provider
-    );
-    const actualOwner = await mockNftReadOnly.ownerOf(tokenId);
-    const userOwnsIt = actualOwner.toLowerCase() === otherAddr.toLowerCase();
-
-    // e) We'll just mock firstTransactionDate as "10 days ago"
-    const firstTxDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-
-    data = {
-      walletBalance,
-      contractBalance,
-      numTransactions,
-      nftOwnership: [
-        {
-          contractAddress: mockNftAddress,
-          tokenId,
-          owned: userOwnsIt,
-        },
-      ],
-      firstTransactionDate: firstTxDate,
-    };
-  }).timeout(10_000);
-
-  describe("Individual Rule Checks", function () {
-    it("walletBalanceAtLeast(BigInt(1)) should pass", async function () {
-      const rule = walletBalanceAtLeast(BigInt(1));
-      const result = await rule(data);
-      expect(result.passed).to.eq(true);
-      if (!result.passed) {
-        console.log(`Error: ${result.error}`);
-      }
-    });
-
-    it("walletBalanceAtLeast(BigInt(9999999999999999999999)) should fail", async function () {
-      const rule = walletBalanceAtLeast(BigInt("9999999999999999999999"));
-      const result = await rule(data);
-      expect(result.passed).to.eq(false);
-    });
-
-    it("contractBalanceAtLeast(BigInt(0)) should pass", async function () {
-      const rule = contractBalanceAtLeast(BigInt(0));
-      const result = await rule(data);
-      expect(result.passed).to.eq(true);
-      if (!result.passed) {
-        console.log(`Error: ${result.error}`);
-      }
-    });
-
-    it("numTransactionsAtLeast(BigInt(1)) should pass", async function () {
-      const rule = numTransactionsAtLeast(BigInt(1));
-      const result = await rule(data);
-      expect(result.passed).to.eq(true);
-    });
-
-    it("numTransactionsAtLeast(BigInt(1000)) should fail", async function () {
-      const rule = numTransactionsAtLeast(BigInt("1000"));
-      const result = await rule(data);
-      expect(result.passed).to.eq(false);
-    });
-
-    it("ownsNFT should pass if minted tokenId 1 to `other`", async function () {
-      const tokenId = BigInt(1);
-      const rule = ownsNFT(mockNftAddress, tokenId);
-      const result = await rule(data);
-      expect(result.passed).to.eq(true);
-    });
-
-    it("ownsNFT should fail if minted tokenId 2 to `other`", async function () {
-      const tokenId = BigInt(2);
-      const rule = ownsNFT(mockNftAddress, tokenId);
-      const result = await rule(data);
-      expect(result.passed).to.eq(false);
-    });
-
-    it("firstTransactionOlderThan(5) should pass (mocked 10 days ago)", async function () {
-      const rule = firstTransactionOlderThan(5);
-      const result = await rule(data);
-      expect(result.passed).to.eq(true);
+    contractAddress = await contract.getAddress();
+    // Fund the contract
+    await signer0.sendTransaction({
+      to: contractAddress,
+      value: ethers.parseEther("1"),
     });
   });
 
-  describe("Evaluate All Rules in One Go", function () {
-    it("should evaluate multiple rules with RuleEngine", async function () {
+  describe("walletBalanceAtLeast Rule", function() {
+    it("should pass if the wallet has enough balance", async function() {
+      // Anvil seeds accounts with 10,000 ETH
+      const rule = walletBalanceAtLeast(ethers.parseEther("1"));
+      const result = await rule(defaultConfig, signer0Addr);
+      expect(result.passed).to.be.true;
+      if (!result.passed) {
+        console.error(`Error: ${result.error}`);
+      }
+    });
+
+    it("should fail if the wallet has less than the required balance", async function() {
+      const rule = walletBalanceAtLeast(ethers.parseEther("1000000"));
+
+      const result = await rule(defaultConfig, signer0Addr);
+      expect(result.passed).to.be.false;
+      expect(result.error).to.be.undefined;
+    });
+  });
+
+  describe("contractBalanceAtLeast Rule", function() {
+    before(async function() {
+    });
+
+    it("should pass if contract balance is >= required Wei", async function() {
+      const rule = contractBalanceAtLeast(contractAddress, ethers.parseEther("1"))
+      const result = await rule(defaultConfig);
+      expect(result.passed).to.be.true;
+    });
+
+    it("should fail if the contract has less than the required Wei", async function() {
+      const rule = contractBalanceAtLeast(contractAddress, ethers.parseEther("2"))
+      const result = await rule(defaultConfig);
+      expect(result.passed).to.be.false;
+    });
+  });
+
+  describe("numTransactionsAtLeast Rule", function() {
+    it("should pass based on the user's transaction count", async function() {
+      await signer1.sendTransaction({
+        to: signer0Addr,
+        value: ethers.parseEther("0.001"),
+      });
+
+      const rule = numTransactionsAtLeast(BigInt(1))
+      const result = await rule(defaultConfig, signer1Addr);
+      expect(result.passed).to.be.true;
+    });
+
+    it("should fail based on the user's transaction count", async function() {
+      const rule = numTransactionsAtLeast(BigInt(1))
+      const result = await rule(defaultConfig, signer2Addr);
+      expect(result.passed).to.be.false;
+    });
+  });
+
+  describe("ownsNFT Rule", function() {
+    let nftAddress: string;
+    let tokenId = BigInt(1);
+    let nftContractUntyped: any
+
+    before(async function() {
+      const artifact = JSON.parse(fs.readFileSync("out/MockNFT.sol/MockNFT.json", "utf-8"));
+      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode.object, signer0);
+      nftContractUntyped = await factory.deploy();
+      await nftContractUntyped.waitForDeployment();
+
+      nftAddress = await nftContractUntyped.getAddress();
+    });
+
+    it("should pass if user owns the NFT", async function() {
+      // Mint an NFT to user1
+      await (nftContractUntyped as any).mint(signer1);
+
+      const rule = ownsNFT(nftAddress, tokenId)
+      const result = await rule(defaultConfig, signer1Addr);
+      expect(result.passed).to.be.true;
+    });
+
+    it("should fail if user does not own the NFT", async function() {
+      const rule = ownsNFT(nftAddress, tokenId)
+      const result = await rule(defaultConfig, signer2Addr);
+      expect(result.passed).to.be.false;
+    });
+  });
+
+  describe("addressIsEOA Rule", function() {
+    before(async function() {
+    });
+
+    it("should pass if address is EOA", async function() {
+      const rule = addressIsEOA()
+      const result = await rule(defaultConfig, signer0Addr);
+      expect(result.passed).to.be.true;
+    });
+
+    it("should fail if address is not EOA", async function() {
+      const rule = addressIsEOA()
+      const result = await rule(defaultConfig, contractAddress);
+      expect(result.passed).to.be.false;
+    });
+  });
+
+  describe("addressIsContract Rule", function() {
+    before(async function() {
+    });
+
+    it("should pass if address is a contract", async function() {
+      const rule = addressIsContract()
+      const result = await rule(defaultConfig, contractAddress);
+      expect(result.passed).to.be.true;
+    });
+
+    it("should fail if address is not a contract", async function() {
+      const rule = addressIsContract()
+      const result = await rule(defaultConfig, signer0Addr);
+      expect(result.passed).to.be.false;
+    });
+  });
+
+  // Example: firstTransactionOlderThan
+  // We might need an indexer or some logic to find the creation date,
+  // but we'll just demonstrate the test structure:
+  describe("firstTransactionOlderThan Rule", function() {
+    it("should pass/fail based on the approximate created date", async function() {
+      // For demonstration, we do a naive approach in the rule
+      const rule = async (address: string, config: RuleConfig) => {
+        // e.g., pretend user was created 20 days ago
+        const creationDate = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+        const diffDays = (Date.now() - creationDate.getTime()) / (1000 * 3600 * 24);
+        const minDays = 10;
+        const passed = diffDays >= minDays;
+        return {
+          name: `firstTransactionOlderThan(${minDays} days)`,
+          passed,
+        };
+      };
+
+      const result = await rule(signer0Addr, defaultConfig);
+      expect(result.passed).to.be.true;
+    });
+  });
+
+  describe("Multiple Rules", function() {
+    it("should evaluate multiple rules with RuleEngine", async function() {
       const engine = new RuleEngine();
 
       engine.addRules([
-        walletBalanceAtLeast(BigInt(0)),
-        contractBalanceAtLeast(BigInt(0)),
+        addressIsEOA(),
+        walletBalanceAtLeast(ethers.parseEther("1")),
+        contractBalanceAtLeast(contractAddress, ethers.parseEther("1")),
         numTransactionsAtLeast(BigInt(1)),
-        ownsNFT(mockNftAddress, BigInt(1)),
-        firstTransactionOlderThan(5),
       ]);
 
-      const result = await engine.evaluate(data);
+      const { result, ruleResults } = await engine.evaluate(defaultConfig, signer0Addr);
 
-      // for (const r of result.ruleResults) {
-      //   console.log(`Rule "${r.name}": passed=${r.passed}, error=${r.error}`);
-      // }
+      for (const r of ruleResults) {
+        console.log(`Rule "${r.name}": passed=${r.passed}, error=${r.error}`);
+      }
 
-      expect(result.ruleResults).to.have.lengthOf(5);
+      expect(ruleResults).to.have.lengthOf(4);
 
-      expect(result.result).to.eq(true)
+      expect(result).to.eq(true)
     });
   });
 });

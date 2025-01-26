@@ -1,19 +1,8 @@
 // src/types.ts
 
-/**
- * Represents the on-chain data we gather for a user or contract
- * before running rules.
- */
-export interface IBlockchainData {
-  walletBalance: bigint;      // in Wei
-  contractBalance: bigint;    // in Wei
-  numTransactions: bigint;    // total transactions by the user
-  nftOwnership: {
-    contractAddress: string;
-    tokenId: bigint;
-    owned: boolean;
-  }[];
-  firstTransactionDate?: Date;
+export interface RuleConfig {
+  rpcUrl: string;      // e.g. "http://127.0.0.1:8545"
+  network?: string;    // optional label or chain ID
 }
 
 /**
@@ -31,7 +20,6 @@ export interface EvaluateResult {
 }
 
 /**
- * A rule is either synchronous or async. It accepts IBlockchainData
- * and returns (or resolves) a RuleResult.
+ * A rule can be either sync or async
  */
-export type Rule = (data: IBlockchainData) => Promise<RuleResult> | RuleResult;
+export type Rule = (config: RuleConfig, address?: string) => Promise<RuleResult> | RuleResult;
