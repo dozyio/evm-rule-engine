@@ -1,22 +1,37 @@
 // test/ruleEngine.test.ts
 
 import { expect } from "chai";
-import { ethers } from "ethers";
+import { ethers, JsonRpcProvider } from "ethers";
 import { addressIsContract, addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, ownsNFT, walletBalanceAtLeast } from "../src/rules";
-import { Rule, RuleConfig } from "../src/types";
+import { EngineConfig, Rule } from "../src/types";
 import { RuleEngine } from "../src/RuleEngine";
 import path from "path";
 import fs from "fs";
 import { createRulesFromJson, readRulesFile } from "../src/loadRules";
 
 /**
- * We'll assume anvil is running at http://127.0.0.1:8545 with some funded accounts.
- * `anvil --port 8545`
+ * We'll assume 2 anvil instances are running
+ * `anvil --port 8545 --chain-id 31337`
+ * `anvil --port 8546 --chain-id 31338`
  */
-const RPC_URL = "http://127.0.0.1:8545";
+
+const CHAIN_ID_0 = "31337"
+const CHAIN_ID_1 = "31338"
+const engineConfig: EngineConfig = {
+  networks: [
+    {
+      provider: new ethers.JsonRpcProvider("http://127.0.0.1:8545"),
+      chainId: CHAIN_ID_0
+    },
+    {
+      provider: new ethers.JsonRpcProvider("http://127.0.0.1:8546"),
+      chainId: CHAIN_ID_1
+    }
+  ]
+};
 
 describe("Rule Engine", function() {
-  let provider: ethers.JsonRpcProvider;
+  let provider: ethers.Provider; // need a read/write provider
   let signer0: ethers.Signer;
   let signer1: ethers.Signer;
   let signer2: ethers.Signer;
@@ -25,18 +40,12 @@ describe("Rule Engine", function() {
   let signer2Addr: string;
   let contractAddress: string;
 
-  // We'll define a default RuleConfig used by each test
-  const defaultConfig: RuleConfig = {
-    rpcUrl: RPC_URL,
-    network: "anvil",
-  };
-
   before(async function() {
-    provider = new ethers.JsonRpcProvider(RPC_URL);
+    provider = engineConfig.networks[0].provider
 
-    signer0 = await provider.getSigner(0); // account #0
-    signer1 = await provider.getSigner(1); // account #1
-    signer2 = await provider.getSigner(2); // account #1
+    signer0 = await (provider as JsonRpcProvider).getSigner(0); // account #0
+    signer1 = await (provider as JsonRpcProvider).getSigner(1); // account #1
+    signer2 = await (provider as JsonRpcProvider).getSigner(2); // account #1
 
     signer0Addr = await signer0.getAddress();
     signer1Addr = await signer1.getAddress();
@@ -61,19 +70,19 @@ describe("Rule Engine", function() {
 
   describe("Evaluate", function() {
     it("should pass when evaluating multiple rules with successful rules", async function() {
-      const engine = new RuleEngine();
+      const engine = new RuleEngine(engineConfig);
 
       engine.addRules([
-        addressIsEOA(),
-        walletBalanceAtLeast(ethers.parseEther("1")),
-        contractBalanceAtLeast(contractAddress, ethers.parseEther("1")),
-        numTransactionsAtLeast(BigInt(1)),
+        addressIsEOA(provider, CHAIN_ID_0),
+        walletBalanceAtLeast(provider, CHAIN_ID_0, ethers.parseEther("1")),
+        contractBalanceAtLeast(provider, CHAIN_ID_0, contractAddress, ethers.parseEther("1")),
+        numTransactionsAtLeast(provider, CHAIN_ID_0, BigInt(1)),
       ]);
 
-      const { result, ruleResults } = await engine.evaluate(defaultConfig, signer0Addr);
+      const { result, ruleResults } = await engine.evaluate(signer0Addr);
 
       // for (const r of ruleResults) {
-      //   console.log(`Rule "${r.name}": passed=${r.passed}, error=${r.error}`);
+      //   console.log(`Rule "${r.name}": success=${r.success}, error=${r.error}`);
       // }
 
       expect(ruleResults).to.have.lengthOf(4);
@@ -82,23 +91,23 @@ describe("Rule Engine", function() {
     });
 
     it("should fail when evaluating multiple rules with failing rule", async function() {
-      const engine = new RuleEngine();
+      const engine = new RuleEngine(engineConfig);
 
       engine.addRules([
-        walletBalanceAtLeast(ethers.parseEther("1")),
-        contractBalanceAtLeast(contractAddress, ethers.parseEther("2")),
+        walletBalanceAtLeast(provider, CHAIN_ID_0, ethers.parseEther("1")),
+        contractBalanceAtLeast(provider, CHAIN_ID_0, contractAddress, ethers.parseEther("2")),
       ]);
 
-      const { result, ruleResults } = await engine.evaluate(defaultConfig, signer0Addr);
+      const { result, ruleResults } = await engine.evaluate(signer0Addr);
 
       // for (const r of ruleResults) {
-      //   console.log(`Rule "${r.name}": passed=${r.passed}, error=${r.error}`);
+      //   console.log(`Rule "${r.name}": success=${r.success}, error=${r.error}`);
       // }
 
       expect(ruleResults).to.have.lengthOf(2);
 
       expect(result).to.eq(false)
-      const failingRule = ruleResults.find(r => !r.passed);
+      const failingRule = ruleResults.find(r => !r.success);
       expect(failingRule).to.exist;
       expect(failingRule?.name).to.match(/Contract balance >=/);
     });
@@ -111,21 +120,22 @@ describe("Rule Engine", function() {
         };
       }
 
-      const engine = new RuleEngine();
+      const engine = new RuleEngine(engineConfig);
       engine.addRules([
         {
           rule: forcedErrorRule(),
           definition: {
             type: 'custom',
-            params: {}
+            params: {},
+            chainId: CHAIN_ID_0
           }
         }
       ]);
 
-      const evaluation = await engine.evaluate(defaultConfig, signer0Addr);
+      const evaluation = await engine.evaluate(signer0Addr);
       expect(evaluation.result).to.eq(false, "Overall result should be false if any rule throws");
       expect(evaluation.ruleResults[0].error).to.eq("Forced test error");
-      expect(evaluation.ruleResults[0].passed).to.eq(false);
+      expect(evaluation.ruleResults[0].success).to.eq(false);
     });
   });
 
@@ -136,8 +146,8 @@ describe("Rule Engine", function() {
         { type: "numTransactionsAtLeast", minCount: "5" }
       ];
 
-      const engine = new RuleEngine();
-      engine.addRules(createRulesFromJson(mockJson))
+      const engine = new RuleEngine(engineConfig);
+      engine.addRules(createRulesFromJson(provider, CHAIN_ID_0, mockJson))
 
       const rulesFromEngine = engine.getRuleDefinitions()
       expect(rulesFromEngine).to.be.an("array")
@@ -152,8 +162,8 @@ describe("Rule Engine", function() {
         { type: "numTransactionsAtLeast", minCount: "5" }
       ];
 
-      const engine = new RuleEngine();
-      engine.addRules(createRulesFromJson(mockJson))
+      const engine = new RuleEngine(engineConfig);
+      engine.addRules(createRulesFromJson(provider, CHAIN_ID_0, mockJson))
 
       const exportedJson = engine.exportRulesAsJson()
       expect(JSON.parse(exportedJson)).to.deep.equal(mockJson);
@@ -182,7 +192,7 @@ describe("Rule Engine", function() {
       let thrown = false
 
       try {
-      engine = new RuleEngine();
+      engine = new RuleEngine(engineConfig);
       engine.addRules(loaded) // only load the definitions, not the rules, should throw
       } catch (e) {
         thrown = true

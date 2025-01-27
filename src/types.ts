@@ -1,13 +1,14 @@
 // src/types.ts
 
-export interface RuleConfig {
-  rpcUrl: string;      // e.g. "http://127.0.0.1:8545"
-  network?: string;    // optional label or chain ID
-}
+import { Provider } from "ethers";
+
+// A rule can be either sync or async
+export type Rule = (address?: string) => Promise<RuleResult> | RuleResult;
 
 export interface RuleDefinition {
   type: string;
   params: Record<string, any>;
+  chainId: string;
 }
 
 export interface BuiltRule {
@@ -15,21 +16,24 @@ export interface BuiltRule {
   definition: RuleDefinition;
 }
 
-/**
- * The result of a single rule check.
- */
+// The result of a single rule check.
 export interface RuleResult {
   name: string;
-  passed: boolean;
+  success: boolean;
   error?: string;
 }
 
+// The result of multiple rules
 export interface EvaluateResult {
   ruleResults: RuleResult[]
   result: boolean
 }
 
-/**
- * A rule can be either sync or async
- */
-export type Rule = (config: RuleConfig, address?: string) => Promise<RuleResult> | RuleResult;
+export interface Network {
+  provider: Provider;
+  chainId: string;
+}
+
+export interface EngineConfig {
+  networks: Network[]
+}
