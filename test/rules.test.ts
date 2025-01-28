@@ -3,7 +3,7 @@
 import fs from "fs";
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { addressIsContract, addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, ownsNFT, walletBalanceAtLeast } from "../src/rules";
+import { addressIsContract, addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, ownsNFT, ownsNFTTokenId, walletBalanceAtLeast } from "../src/rules";
 
 /**
  * We'll assume anvil is running at http://127.0.0.1:8545 with some funded accounts.
@@ -104,7 +104,6 @@ describe("Single Rules", function() {
 
   describe("ownsNFT Rule", function() {
     let nftAddress: string;
-    let tokenId = BigInt(1);
     let nftContractUntyped: any
 
     before(async function() {
@@ -120,13 +119,44 @@ describe("Single Rules", function() {
       // Mint an NFT to user1
       await (nftContractUntyped as any).mint(signer1);
 
-      const r = ownsNFT(provider, CHAIN_ID_0, nftAddress, tokenId)
+      const r = ownsNFT(provider, CHAIN_ID_0, nftAddress)
       const result = await r.rule(signer1Addr);
       expect(result.success).to.be.true;
     });
 
     it("should fail if user does not own the NFT", async function() {
-      const r = ownsNFT(provider, CHAIN_ID_0, nftAddress, tokenId)
+      const r = ownsNFT(provider, CHAIN_ID_0, nftAddress)
+      const result = await r.rule(signer2Addr);
+      expect(result.success).to.be.false;
+    });
+  });
+
+
+  describe("ownsNFTTokenId Rule", function() {
+    let nftAddress: string;
+    let tokenId = BigInt(1);
+    let nftContractUntyped: any
+
+    before(async function() {
+      const artifact = JSON.parse(fs.readFileSync("out/MockNFT.sol/MockNFT.json", "utf-8"));
+      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode.object, signer0);
+      nftContractUntyped = await factory.deploy();
+      await nftContractUntyped.waitForDeployment();
+
+      nftAddress = await nftContractUntyped.getAddress();
+    });
+
+    it("should pass if user owns the NFT token id", async function() {
+      // Mint an NFT to user1
+      await (nftContractUntyped as any).mint(signer1);
+
+      const r = ownsNFTTokenId(provider, CHAIN_ID_0, nftAddress, tokenId)
+      const result = await r.rule(signer1Addr);
+      expect(result.success).to.be.true;
+    });
+
+    it("should fail if user does not own the NFT token id", async function() {
+      const r = ownsNFTTokenId(provider, CHAIN_ID_0, nftAddress, tokenId)
       const result = await r.rule(signer2Addr);
       expect(result.success).to.be.false;
     });

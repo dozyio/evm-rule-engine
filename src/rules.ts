@@ -58,6 +58,83 @@ export function contractBalanceAtLeast(provider: Provider, chainId: string, cont
 }
 
 /**
+ * Checks if `address` holds at least `minTokens` of ERC-20 `tokenAddress`.
+ */
+export function erc20BalanceAtLeast(
+  provider: Provider,
+  chainId: string,
+  tokenAddress: string,
+  minTokens: bigint
+): BuiltRule {
+  const rule = async (address: string): Promise<RuleResult> => {
+    const ruleName = `ERC20 balance >= ${minTokens} (token: ${tokenAddress})`;
+    try {
+      // Minimal ERC-20 ABI with balanceOf
+      const erc20Abi = ["function balanceOf(address) view returns (uint256)"];
+      const contract = new ethers.Contract(tokenAddress, erc20Abi, provider);
+      const balance = await contract.balanceOf(address);
+
+      // Compare as BigInt
+      const balanceBig = BigInt(balance.toString());
+      const success = balanceBig >= minTokens;
+
+      return { name: ruleName, success };
+    } catch (err: any) {
+      return { name: ruleName, success: false, error: err.message };
+    }
+  };
+
+  return {
+    rule,
+    definition: {
+      type: "erc20BalanceAtLeast",
+      params: {
+        tokenAddress,
+        minTokens: minTokens.toString(),
+      },
+      chainId,
+    },
+  };
+}
+
+/**
+ * Checks if `address` has at least 1 token in an ERC-721 collection (`nftAddress`).
+ */
+export function ownsNFT(
+  provider: Provider,
+  chainId: string,
+  nftAddress: string
+): BuiltRule {
+  const rule = async (address: string): Promise<RuleResult> => {
+    const ruleName = `User owns at least 1 NFT from ${nftAddress}`;
+    try {
+      // Minimal ERC-721 ABI with balanceOf
+      const erc721Abi = ["function balanceOf(address owner) view returns (uint256)"];
+      const contract = new ethers.Contract(nftAddress, erc721Abi, provider);
+      const balance = await contract.balanceOf(address);
+
+      const balanceBig = BigInt(balance.toString());
+      const success = balanceBig >= 1n;
+
+      return { name: ruleName, success };
+    } catch (err: any) {
+      return { name: ruleName, success: false, error: err.message };
+    }
+  };
+
+  return {
+    rule,
+    definition: {
+      type: "ownsAnyNFT",
+      params: {
+        nftAddress,
+      },
+      chainId,
+    },
+  };
+}
+
+/**
  * Checks if the user has sent at least `minCount` transactions (nonce >= minCount).
  */
 export function numTransactionsAtLeast(provider: Provider, chainId: string, minCount: bigint): BuiltRule {
@@ -88,7 +165,7 @@ export function numTransactionsAtLeast(provider: Provider, chainId: string, minC
 /**
  * Checks if `address` owns an ERC721 (tokenId) at `nftAddress`.
  */
-export function ownsNFT(provider: Provider, chainId: string, nftAddress: string, tokenId: bigint): BuiltRule {
+export function ownsNFTTokenId(provider: Provider, chainId: string, nftAddress: string, tokenId: bigint): BuiltRule {
   const rule = async (address: string): Promise<RuleResult> => {
     const ruleName = `User owns NFT ${nftAddress} #${tokenId}`;
     try {

@@ -2,8 +2,8 @@
   "compilerOptions": {
     // ...other options...
     "types": ["node", "mocha"],
-    "esModuleInterop": true
-    // If you don't already include "node",
-    // add it for Node.js type definitions.
+    "esModuleInterop": true,
+    "target": "ES2024",
+    "moduleResolution": "bundler"
   }
 }
