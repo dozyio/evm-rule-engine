@@ -164,8 +164,9 @@ describe("Rule Engine", function() {
 
       const engine = new RuleEngine(engineConfig);
       engine.addRules(createRulesFromJson(provider, CHAIN_ID_0, mockJson))
-
       const exportedJson = engine.exportRulesAsJson()
+
+      console.log(exportedJson)
       expect(JSON.parse(exportedJson)).to.deep.equal(mockJson);
     });
 

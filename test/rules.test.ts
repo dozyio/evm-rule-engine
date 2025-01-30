@@ -3,7 +3,7 @@
 import fs from "fs";
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { addressIsContract, addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, ownsNFT, ownsNFTTokenId, walletBalanceAtLeast } from "../src/rules";
+import { addressIsContract, addressIsEOA, contractBalanceAtLeast, erc20BalanceAtLeast, numTransactionsAtLeast, ownsNFT, ownsNFTTokenId, walletBalanceAtLeast } from "../src/rules";
 
 /**
  * We'll assume anvil is running at http://127.0.0.1:8545 with some funded accounts.
@@ -116,7 +116,7 @@ describe("Single Rules", function() {
     });
 
     it("should pass if user owns the NFT", async function() {
-      // Mint an NFT to user1
+      // Mint an NFT to signer1
       await (nftContractUntyped as any).mint(signer1);
 
       const r = ownsNFT(provider, CHAIN_ID_0, nftAddress)
@@ -187,6 +187,60 @@ describe("Single Rules", function() {
       const r = addressIsContract(provider, CHAIN_ID_0)
       const result = await r.rule(signer0Addr);
       expect(result.success).to.be.false;
+    });
+  });
+
+  describe("erc20BalanceAtLeast Rule", function() {
+    let erc20Address: string;
+    let erc20Contract: any;
+
+    before(async function() {
+      const artifact = JSON.parse(
+        fs.readFileSync("out/MockERC20.sol/MockToken.json", "utf-8")
+      );
+
+      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode.object, signer0);
+      erc20Contract = await factory.deploy();
+      await erc20Contract.waitForDeployment();
+
+      erc20Address = await erc20Contract.getAddress();
+
+      // Check the deployer’s balance right after deployment
+      await erc20Contract.balanceOf(signer0Addr);
+      const erc20FromSigner0 = erc20Contract.connect(signer0);
+
+      const tx = await erc20FromSigner0.transfer(signer1Addr, 100n * 100000000000000000n);
+      await tx.wait();
+    });
+
+    it("should pass if user has the required token balance", async function() {
+      // signer1 has 100 tokens
+      const ruleInstance = erc20BalanceAtLeast(provider, CHAIN_ID_0, erc20Address, 50n * 100000000000000000n);
+      const result = await ruleInstance.rule(signer1Addr);
+
+      expect(result.success).to.be.true;
+      if (!result.success) {
+        console.error(`Error: ${result.error}`);
+      }
+    });
+
+    it("should fail if user does not have the required token balance", async function() {
+      // signer1 has 100 tokens, threshold is 101
+      const ruleInstance = erc20BalanceAtLeast(provider, CHAIN_ID_0, erc20Address, 101n * 100000000000000000n);
+      const result = await ruleInstance.rule(signer1Addr);
+
+      expect(result.success).to.be.false;
+      // If you want, you can also check that `result.error` is undefined (because
+      // the call succeeded, just didn't meet the threshold)
+      expect(result.error).to.be.undefined;
+    });
+
+    it("should pass exactly at the threshold", async function() {
+      // signer1 has exactly 100 tokens, threshold is 100
+      const ruleInstance = erc20BalanceAtLeast(provider, CHAIN_ID_0, erc20Address, 100n * 100000000000000000n);
+      const result = await ruleInstance.rule(signer1Addr);
+
+      expect(result.success).to.be.true;
     });
   });
 });
