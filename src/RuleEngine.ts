@@ -58,14 +58,6 @@ export class RuleEngine {
     return this.networks.some(n => n.chainId === chainId);
   }
 
-  private getProvider(chainId: string): Provider {
-    const foundProvider = this.networks.find(n => n.chainId === chainId);
-    if (!foundProvider) {
-      throw new Error(`No network found for chainId: ${chainId}`);
-    }
-    return foundProvider.provider;
-  }
-
   /**
    * Evaluate all rules against the given config + address.
    * If ANY rule fails, the overall result is false.

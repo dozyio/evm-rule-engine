@@ -16,15 +16,17 @@ import { createRulesFromJson, readRulesFile } from "../src/loadRules";
  */
 
 const CHAIN_ID_0 = "31337"
+const CHAIN_ID_0_ENDPOINT = 'http://127.0.0.1:8545'
 const CHAIN_ID_1 = "31338"
+const CHAIN_ID_1_ENDPOINT = 'http://127.0.0.1:8546'
 const engineConfig: EngineConfig = {
   networks: [
     {
-      provider: new ethers.JsonRpcProvider("http://127.0.0.1:8545"),
+      provider: new ethers.JsonRpcProvider(CHAIN_ID_0_ENDPOINT),
       chainId: CHAIN_ID_0
     },
     {
-      provider: new ethers.JsonRpcProvider("http://127.0.0.1:8546"),
+      provider: new ethers.JsonRpcProvider(CHAIN_ID_1_ENDPOINT),
       chainId: CHAIN_ID_1
     }
   ]
@@ -73,10 +75,10 @@ describe("Rule Engine", function() {
       const engine = new RuleEngine(engineConfig);
 
       engine.addRules([
-        addressIsEOA(provider, CHAIN_ID_0),
-        walletBalanceAtLeast(provider, CHAIN_ID_0, ethers.parseEther("1")),
-        contractBalanceAtLeast(provider, CHAIN_ID_0, contractAddress, ethers.parseEther("1")),
-        numTransactionsAtLeast(provider, CHAIN_ID_0, BigInt(1)),
+        addressIsEOA(engineConfig.networks, CHAIN_ID_0),
+        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, ethers.parseEther("1")),
+        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, contractAddress, ethers.parseEther("1")),
+        numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, BigInt(1)),
       ]);
 
       const { result, ruleResults } = await engine.evaluate(signer0Addr);
@@ -94,8 +96,8 @@ describe("Rule Engine", function() {
       const engine = new RuleEngine(engineConfig);
 
       engine.addRules([
-        walletBalanceAtLeast(provider, CHAIN_ID_0, ethers.parseEther("1")),
-        contractBalanceAtLeast(provider, CHAIN_ID_0, contractAddress, ethers.parseEther("2")),
+        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, ethers.parseEther("1")),
+        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, contractAddress, ethers.parseEther("2")),
       ]);
 
       const { result, ruleResults } = await engine.evaluate(signer0Addr);
@@ -147,7 +149,7 @@ describe("Rule Engine", function() {
       ];
 
       const engine = new RuleEngine(engineConfig);
-      engine.addRules(createRulesFromJson(provider, CHAIN_ID_0, mockJson))
+      engine.addRules(createRulesFromJson(engineConfig.networks, CHAIN_ID_0, mockJson))
 
       const rulesFromEngine = engine.getRuleDefinitions()
       expect(rulesFromEngine).to.be.an("array")
@@ -163,7 +165,7 @@ describe("Rule Engine", function() {
       ];
 
       const engine = new RuleEngine(engineConfig);
-      engine.addRules(createRulesFromJson(provider, CHAIN_ID_0, mockJson))
+      engine.addRules(createRulesFromJson(engineConfig.networks, CHAIN_ID_0, mockJson))
       const exportedJson = engine.exportRulesAsJson()
 
       console.log(exportedJson)

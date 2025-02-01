@@ -5,7 +5,7 @@ import {
   readRulesFile,
   createRulesFromJson
 } from "../src/loadRules";
-import { BuiltRule } from "../src/types";
+import { BuiltRule, Network } from "../src/types";
 import { ethers } from "ethers";
 
 describe("Load Rules", function() {
@@ -43,9 +43,11 @@ describe("Load Rules", function() {
   });
 
   describe("createRulesFromJson()", function() {
-    let provider: ethers.Provider;
-    provider = new ethers.JsonRpcProvider('http://127.0.0.1.8545');
+    let networks: Network[] = [];
     const CHAIN_ID_0 = "31337"
+    const CHAIN_ID_0_ENDPOINT = 'http://127.0.0.1.8545'
+    networks.push({ chainId: CHAIN_ID_0, provider: new ethers.JsonRpcProvider(CHAIN_ID_0_ENDPOINT) });
+    let provider: ethers.Provider;
 
     it("should create valid rules from well-formed definitions", function() {
       const definitions = [
@@ -54,7 +56,7 @@ describe("Load Rules", function() {
         { type: "addressIsContract" }
       ];
 
-      const rules: BuiltRule[] = createRulesFromJson(provider, CHAIN_ID_0, definitions);
+      const rules: BuiltRule[] = createRulesFromJson(networks, CHAIN_ID_0, definitions);
       expect(rules).to.have.lengthOf(3);
 
       // Each entry in `rules` is a function. We can do a basic check:
@@ -71,7 +73,7 @@ describe("Load Rules", function() {
       const definitions = [
         { type: "nonExistentRule", someParam: "123" }
       ];
-      expect(() => createRulesFromJson(provider, CHAIN_ID_0, definitions)).to.throw(/Unknown rule type/);
+      expect(() => createRulesFromJson(networks, CHAIN_ID_0, definitions)).to.throw(/Unknown rule type/);
     });
 
     it("should throw if required parameters are missing", function() {
@@ -81,7 +83,7 @@ describe("Load Rules", function() {
       ];
       // This will likely cause a runtime error in the switch-case if
       // `params.minWei` is undefined. You can catch that or let it throw.
-      expect(() => createRulesFromJson(provider, CHAIN_ID_0, definitions)).to.throw();
+      expect(() => createRulesFromJson(networks, CHAIN_ID_0, definitions)).to.throw();
     });
   });
 });

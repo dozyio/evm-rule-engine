@@ -1,6 +1,5 @@
 // src/ruleFactories.ts
 
-import { Provider } from "ethers";
 import {
   walletBalanceAtLeast,
   contractBalanceAtLeast,
@@ -11,29 +10,28 @@ import {
   ownsNFTTokenId,
   erc20BalanceAtLeast
 } from "./rules";
-import { BuiltRule } from "./types";
+import { BuiltRule, Network } from "./types";
 
 export const ruleFactories: Record<string, (...args: any[]) => BuiltRule> = {
-  walletBalanceAtLeast: (provider: Provider, chainId: string, minWei: string) =>
-    walletBalanceAtLeast(provider, chainId, BigInt(minWei)),
+  walletBalanceAtLeast: (networks: Network[], chainId: string, minWei: string) =>
+    walletBalanceAtLeast(networks , chainId, BigInt(minWei)),
 
-  contractBalanceAtLeast: (provider: Provider, chainId: string, contractAddress: string, minWei: string) =>
-    contractBalanceAtLeast(provider, chainId, contractAddress, BigInt(minWei)),
+  contractBalanceAtLeast: (networks: Network[], chainId: string, contractAddress: string, minWei: string) =>
+    contractBalanceAtLeast(networks, chainId, contractAddress, BigInt(minWei)),
 
-  erc20BalanceAtLeast: (provider: Provider, chainId: string, contractAddress: string, minTokens: string) =>
-    erc20BalanceAtLeast(provider, chainId, contractAddress, BigInt(minTokens)),
+  erc20BalanceAtLeast: (networks: Network[], chainId: string, contractAddress: string, minTokens: string) =>
+    erc20BalanceAtLeast(networks, chainId, contractAddress, BigInt(minTokens)),
 
-  numTransactionsAtLeast: (provider: Provider, chainId: string, minCount: string) =>
-    numTransactionsAtLeast(provider, chainId, BigInt(minCount)),
+  numTransactionsAtLeast: (networks: Network[], chainId: string, minCount: string) =>
+    numTransactionsAtLeast(networks, chainId, BigInt(minCount)),
 
-  ownsNFT: (provider: Provider, chainId: string, nftAddress: string) =>
-    ownsNFT(provider, chainId, nftAddress),
+  ownsNFT: (networks: Network[], chainId: string, nftAddress: string) =>
+    ownsNFT(networks, chainId, nftAddress),
 
-  ownsNFTTokenId: (provider: Provider, chainId: string, nftAddress: string, tokenId: string) =>
-    ownsNFTTokenId(provider, chainId, nftAddress, BigInt(tokenId)),
+  ownsNFTTokenId: (networks: Network[], chainId: string, nftAddress: string, tokenId: string) =>
+    ownsNFTTokenId(networks, chainId, nftAddress, BigInt(tokenId)),
 
-  addressIsContract: (provider: Provider, chainId: string) => addressIsContract(provider, chainId),
+  addressIsContract: (networks: Network[], chainId: string) => addressIsContract(networks, chainId),
 
-  addressIsEOA: (provider: Provider, chainId: string) => addressIsEOA(provider, chainId)
+  addressIsEOA: (networks: Network[], chainId: string) => addressIsEOA(networks, chainId)
 };
-
