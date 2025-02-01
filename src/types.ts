@@ -7,8 +7,8 @@ export type Rule = (address?: string) => Promise<RuleResult> | RuleResult;
 
 export interface RuleDefinition {
   type: string;
-  params: Record<string, any>;
   chainId: string;
+  params: Record<string, any>;
 }
 
 export interface BuiltRule {

@@ -7,7 +7,8 @@
   "scripts": {
     "typechain": "typechain --target ethers-v6 --out-dir typechain-types 'out/**/*.json'",
     "build:contract": "forge build",
-    "test": "forge build && mocha --require ts-node/register --timeout 10000 'test/*.test.ts'"
+    "test": "forge build && nyc --reporter=html --reporter=text --reporter=lcov mocha --require ts-node/register --timeout 10000 --bail 'test/*.test.ts'",
+    "test:coverage": "npm run test && open coverage/index.html"
   },
   "dependencies": {
     "@types/node": "^22.10.2",
@@ -19,6 +20,7 @@
     "@types/mocha": "^10.0.10",
     "chai": "^5.1.2",
     "mocha": "^11.0.1",
+    "nyc": "^17.1.0",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.2"
   }

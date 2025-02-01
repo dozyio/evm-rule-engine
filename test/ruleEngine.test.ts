@@ -2,12 +2,12 @@
 
 import { expect } from "chai";
 import { ethers, JsonRpcProvider } from "ethers";
-import { addressIsContract, addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, ownsNFT, walletBalanceAtLeast } from "../src/rules";
-import { EngineConfig, Rule } from "../src/types";
+import { addressIsEOA, contractBalanceAtLeast, numTransactionsAtLeast, walletBalanceAtLeast } from "../src/rules";
+import { EngineConfig, Rule, RuleDefinition } from "../src/types";
 import { RuleEngine } from "../src/RuleEngine";
 import path from "path";
 import fs from "fs";
-import { createRulesFromJson, readRulesFile } from "../src/loadRules";
+import { createRulesFromDefinitions, rulesFromJsonFile } from "../src/loadRules";
 
 /**
  * We'll assume 2 anvil instances are running
@@ -71,21 +71,21 @@ describe("Rule Engine", function() {
   });
 
   describe("Evaluate", function() {
-    it("should pass when evaluating multiple rules with successful rules", async function() {
+    it("should throw if no networks are configured", async function() {
+      expect(() => new RuleEngine({} as EngineConfig)).to.throw("No networks configured");
+    });
+
+    it("should succeed when evaluating multiple rules with successful rules", async function() {
       const engine = new RuleEngine(engineConfig);
 
       engine.addRules([
-        addressIsEOA(engineConfig.networks, CHAIN_ID_0),
-        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, ethers.parseEther("1")),
-        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, contractAddress, ethers.parseEther("1")),
-        numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, BigInt(1)),
+        addressIsEOA(engineConfig.networks, CHAIN_ID_0, {}),
+        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther("1") }),
+        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther("1") }),
+        numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, { minCount: BigInt(1) }),
       ]);
 
       const { result, ruleResults } = await engine.evaluate(signer0Addr);
-
-      // for (const r of ruleResults) {
-      //   console.log(`Rule "${r.name}": success=${r.success}, error=${r.error}`);
-      // }
 
       expect(ruleResults).to.have.lengthOf(4);
 
@@ -96,15 +96,11 @@ describe("Rule Engine", function() {
       const engine = new RuleEngine(engineConfig);
 
       engine.addRules([
-        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, ethers.parseEther("1")),
-        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, contractAddress, ethers.parseEther("2")),
+        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther("1") }),
+        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther("2") }),
       ]);
 
       const { result, ruleResults } = await engine.evaluate(signer0Addr);
-
-      // for (const r of ruleResults) {
-      //   console.log(`Rule "${r.name}": success=${r.success}, error=${r.error}`);
-      // }
 
       expect(ruleResults).to.have.lengthOf(2);
 
@@ -139,17 +135,48 @@ describe("Rule Engine", function() {
       expect(evaluation.ruleResults[0].error).to.eq("Forced test error");
       expect(evaluation.ruleResults[0].success).to.eq(false);
     });
+
+    it("should add a rule to the Rule Engine", async function() {
+      const engine = new RuleEngine(engineConfig);
+      const rule = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther("1") });
+      engine.addRule(rule);
+      expect(engine.getRuleDefinitions()).to.have.lengthOf(1);
+    });
+
+    it("should add multiple single rules to the Rule Engine", async function() {
+      const engine = new RuleEngine(engineConfig);
+      const rule1 = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther("1") });
+      engine.addRule(rule1);
+      const rule2 = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther("1") });
+      engine.addRule(rule2);
+      expect(engine.getRuleDefinitions()).to.have.lengthOf(2);
+    });
+
+    it("should succeed when evaluating multiple rules from multiple chains", async function() {
+      const engine = new RuleEngine(engineConfig);
+
+      engine.addRules([
+        addressIsEOA(engineConfig.networks, CHAIN_ID_0, {}),
+        addressIsEOA(engineConfig.networks, CHAIN_ID_1, {}),
+      ]);
+
+      const { result, ruleResults } = await engine.evaluate(signer0Addr);
+
+      expect(ruleResults).to.have.lengthOf(2);
+
+      expect(result).to.eq(true)
+    });
   });
 
   describe("Load and Export", function() {
     it("should load rules into Rule Engine from json object", async function() {
-      const mockJson = [
-        { type: "walletBalanceAtLeast", minWei: "1000" },
-        { type: "numTransactionsAtLeast", minCount: "5" }
+      const mockJson: RuleDefinition[] = [
+        { type: "walletBalanceAtLeast", chainId: CHAIN_ID_0, params: { minWei: "1000" } },
+        { type: "numTransactionsAtLeast", chainId: CHAIN_ID_1, params: { minCount: "5" } }
       ];
 
       const engine = new RuleEngine(engineConfig);
-      engine.addRules(createRulesFromJson(engineConfig.networks, CHAIN_ID_0, mockJson))
+      engine.addRules(createRulesFromDefinitions(engineConfig.networks, mockJson))
 
       const rulesFromEngine = engine.getRuleDefinitions()
       expect(rulesFromEngine).to.be.an("array")
@@ -159,49 +186,32 @@ describe("Rule Engine", function() {
     });
 
     it("should load rules into Rule Engine from json object and export object", async function() {
-      const mockJson = [
-        { type: "walletBalanceAtLeast", minWei: "1000" },
-        { type: "numTransactionsAtLeast", minCount: "5" }
+      const mockJson: RuleDefinition[] = [
+        { type: "walletBalanceAtLeast", chainId: CHAIN_ID_0, params: { minWei: "1000" } },
+        { type: "numTransactionsAtLeast", chainId: CHAIN_ID_1, params: { minCount: "5" } }
       ];
 
       const engine = new RuleEngine(engineConfig);
-      engine.addRules(createRulesFromJson(engineConfig.networks, CHAIN_ID_0, mockJson))
+      engine.addRules(createRulesFromDefinitions(engineConfig.networks, mockJson))
       const exportedJson = engine.exportRulesAsJson()
 
-      console.log(exportedJson)
+      // console.log(exportedJson)
       expect(JSON.parse(exportedJson)).to.deep.equal(mockJson);
     });
 
     it("should throw if loaded rules are invalid", async function() {
       const tempJsonPath = path.join(__dirname, "tempRules.json");
       const mockJson = JSON.stringify([
-        { type: "walletBalanceAtLeast", minWei: "1000" },
-        { type: "numTransactionsAtLeast", minCount: "5" }
+        { type: "walletBalanceAtLeast", chainId: CHAIN_ID_0, params: {} }, // missing minWei
       ]);
 
       // Write a temporary JSON file for testing
       fs.writeFileSync(tempJsonPath, mockJson, "utf8");
 
-      const loaded = readRulesFile(tempJsonPath);
-      expect(loaded).to.be.an("array");
-      expect(loaded).to.have.lengthOf(2);
-      expect(loaded[0].type).to.eq("walletBalanceAtLeast");
-      expect(loaded[1].type).to.eq("numTransactionsAtLeast");
+      expect(() => rulesFromJsonFile(engineConfig.networks, tempJsonPath)).to.throw("`minWei` is required");
 
       // Clean up
       fs.unlinkSync(tempJsonPath);
-
-      let engine: RuleEngine | undefined = undefined
-      let thrown = false
-
-      try {
-      engine = new RuleEngine(engineConfig);
-      engine.addRules(loaded) // only load the definitions, not the rules, should throw
-      } catch (e) {
-        thrown = true
-      }
-
-      expect(thrown).to.be.true
     });
   });
 });

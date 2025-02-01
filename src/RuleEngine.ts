@@ -1,16 +1,16 @@
 // src/RuleEngine.ts
-import { Provider } from "ethers";
-import { BuiltRule, EngineConfig, EvaluateResult, Network, RuleDefinition, RuleResult } from "./types";
+import { BuiltRule, EngineConfig, EvaluateResult, Network, RuleResult } from "./types";
 
 export class RuleEngine {
   private rules: BuiltRule[] = [];
   private networks: Network[] = [];
 
   constructor(config: EngineConfig, rules: BuiltRule | BuiltRule[] = []) {
-    this.networks = config.networks
-    if (this.networks.length === 0) {
-      throw new Error("No blockchain networks configured")
+    if (config.networks === undefined || config.networks.length === 0) {
+      throw new Error("No networks configured")
     }
+
+    this.networks = config.networks
 
     if (Array.isArray(rules)) {
       this.addRules(rules);
@@ -63,32 +63,58 @@ export class RuleEngine {
    * If ANY rule fails, the overall result is false.
    */
   public async evaluate(address: string): Promise<EvaluateResult> {
-    const results: RuleResult[] = [];
-
-    let success = true // default to true; if any rule fails, we mark false
-
-    for (const { rule, definition } of this.rules) {
-      try {
-        const result = rule(address);
-        const resolved = result instanceof Promise ? await result : result;
-        if (!resolved.success) {
-          success = false;
+    // const results: RuleResult[] = [];
+    //
+    // let success = true // default to true; if any rule fails, we mark false
+    //
+    // for (const { rule } of this.rules) {
+    //   try {
+    //     const result = rule(address);
+    //     const resolved = result instanceof Promise ? await result : result;
+    //     if (!resolved.success) {
+    //       success = false;
+    //     }
+    //     results.push(resolved);
+    //   } catch (err: any) {
+    //     success = false
+    //     results.push({
+    //       name: "Unnamed Rule",
+    //       success: false,
+    //       error: err.message
+    //     });
+    //   }
+    // }
+    //
+    // return {
+    //   ruleResults: results,
+    //   result: success
+    // }
+    // Build an array of Promises for each rule execution
+    const promises = this.rules.map(({ rule }, index) => {
+      return (async () => {
+        try {
+          const result = await rule(address);
+          return result;
+        } catch (err: any) {
+          return {
+            name: `Rule #${index}`,
+            success: false,
+            error: err.message
+          };
         }
-        results.push(resolved);
-      } catch (err: any) {
-        success = false
-        results.push({
-          name: "Unnamed Rule",
-          success: false,
-          error: err.message
-        });
-      }
-    }
+      })();
+    });
+
+    // Execute all rule checks concurrently
+    const results = await Promise.all(promises);
+
+    // Calculate the overall success
+    const success = results.every((res) => res.success);
 
     return {
       ruleResults: results,
       result: success
-    }
+    };
   }
 
   /**
@@ -96,10 +122,11 @@ export class RuleEngine {
    */
   public getRuleDefinitions(): Record<string, any>[] {
     return this.rules.map((br) => {
-      const { type, params } = br.definition;
+      const { type, params, chainId } = br.definition;
       return {
         type,
-        ...params
+        chainId,
+        params
       };
     });
   }

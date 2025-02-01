@@ -1,14 +1,22 @@
 // src/rules.ts
-import { ethers, Provider } from "ethers";
+import { ethers } from "ethers";
 import { RuleResult, BuiltRule, Network } from "./types";
 import { getProviderByChainId } from "./utils";
+
+export interface walletBalanceAtLeastParams {
+  minWei: bigint;
+}
 
 /**
  * Checks if an EOA's wallet balance is >= `minWei`.
  */
-export function walletBalanceAtLeast(networks: Network[], chainId: string, minWei: bigint): BuiltRule {
+export function walletBalanceAtLeast(networks: Network[], chainId: string, params: walletBalanceAtLeastParams): BuiltRule {
+  if (params.minWei === undefined || params.minWei === null) {
+    throw new Error("`minWei` is required");
+  }
+
   const rule = async (address?: string): Promise<RuleResult> => {
-    const ruleName = `Wallet balance >= ${minWei}`;
+    const ruleName = `Wallet balance >= ${params.minWei}`;
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -16,7 +24,7 @@ export function walletBalanceAtLeast(networks: Network[], chainId: string, minWe
       }
 
       const balance = await provider.getBalance(address!);
-      const success = balance >= minWei;
+      const success = balance >= params.minWei;
       return { name: ruleName, success };
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message };
@@ -28,27 +36,40 @@ export function walletBalanceAtLeast(networks: Network[], chainId: string, minWe
     definition: {
       type: "walletBalanceAtLeast",
       params: {
-        minWei: minWei.toString()
+        minWei: params.minWei.toString()
       },
       chainId,
     },
   };
 }
 
+export interface contractBalanceAtLeastParams {
+  contractAddress: string;
+  minWei: bigint;
+}
+
 /**
  * Checks if a specific contract's balance is >= `minWei`.
  */
-export function contractBalanceAtLeast(networks: Network[], chainId: string, contractAddress: string, minWei: bigint): BuiltRule {
+export function contractBalanceAtLeast(networks: Network[], chainId: string, params: contractBalanceAtLeastParams): BuiltRule {
+  if (params.contractAddress === undefined || params.contractAddress === null) {
+    throw new Error("`contractAddress` is required");
+  }
+
+  if (params.minWei === undefined || params.minWei === null) {
+    throw new Error("`minWei` is required");
+  }
+
   const rule = async (_: string): Promise<RuleResult> => {
-    const ruleName = `Contract balance >= ${minWei} at ${contractAddress}`;
+    const ruleName = `Contract balance >= ${params.minWei} at ${params.contractAddress}`;
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
         throw new Error(`No provider found for chainId: ${chainId}`);
       }
 
-      const balance = await provider.getBalance(contractAddress);
-      const success = balance >= minWei;
+      const balance = await provider.getBalance(params.contractAddress);
+      const success = balance >= params.minWei;
       return { name: ruleName, success };
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message };
@@ -60,25 +81,33 @@ export function contractBalanceAtLeast(networks: Network[], chainId: string, con
     definition: {
       type: "contractBalanceAtLeast",
       params: {
-        contractAddress,
-        minWei: minWei.toString()
+        contractAddress: params.contractAddress,
+        minWei: params.minWei.toString()
       },
       chainId
     }
   };
 }
 
+export interface erc20BalanceAtLeastParams {
+  tokenAddress: string;
+  minTokens: bigint;
+}
+
 /**
  * Checks if `address` holds at least `minTokens` of ERC-20 `tokenAddress`.
  */
-export function erc20BalanceAtLeast(
-  networks: Network[],
-  chainId: string,
-  tokenAddress: string,
-  minTokens: bigint
-): BuiltRule {
+export function erc20BalanceAtLeast(networks: Network[], chainId: string, params: erc20BalanceAtLeastParams): BuiltRule {
+  if (params.tokenAddress === undefined || params.tokenAddress === null) {
+    throw new Error("`tokenAddress` is required");
+  }
+
+  if (params.minTokens === undefined || params.minTokens === null) {
+    throw new Error("`minTokens` is required");
+  }
+
   const rule = async (address: string): Promise<RuleResult> => {
-    const ruleName = `ERC20 balance >= ${minTokens} (token: ${tokenAddress})`;
+    const ruleName = `ERC20 balance >= ${params.minTokens} (token: ${params.tokenAddress})`;
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -87,12 +116,12 @@ export function erc20BalanceAtLeast(
 
       // Minimal ERC-20 ABI with balanceOf
       const erc20Abi = ["function balanceOf(address) view returns (uint256)"];
-      const contract = new ethers.Contract(tokenAddress, erc20Abi, provider);
+      const contract = new ethers.Contract(params.tokenAddress, erc20Abi, provider);
       const balance = await contract.balanceOf(address);
 
       // Compare as BigInt
       const balanceBig = BigInt(balance.toString());
-      const success = balanceBig >= minTokens;
+      const success = balanceBig >= params.minTokens;
 
       return { name: ruleName, success };
     } catch (err: any) {
@@ -105,24 +134,28 @@ export function erc20BalanceAtLeast(
     definition: {
       type: "erc20BalanceAtLeast",
       params: {
-        tokenAddress,
-        minTokens: minTokens.toString(),
+        tokenAddress: params.tokenAddress,
+        minTokens: params.minTokens.toString(),
       },
       chainId,
     },
   };
 }
 
+export interface hasNFTParams {
+  nftAddress: string;
+}
+
 /**
  * Checks if `address` has at least 1 token in an ERC-721 collection (`nftAddress`).
  */
-export function ownsNFT(
-  networks: Network[],
-  chainId: string,
-  nftAddress: string
-): BuiltRule {
+export function hasNFT(networks: Network[], chainId: string, params: hasNFTParams): BuiltRule {
+  if (params.nftAddress === undefined || params.nftAddress === null) {
+    throw new Error("`nftAddress` is required");
+  }
+
   const rule = async (address: string): Promise<RuleResult> => {
-    const ruleName = `User owns at least 1 NFT from ${nftAddress}`;
+    const ruleName = `Address has at least 1 NFT from ${params.nftAddress}`;
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -131,7 +164,7 @@ export function ownsNFT(
 
       // Minimal ERC-721 ABI with balanceOf
       const erc721Abi = ["function balanceOf(address owner) view returns (uint256)"];
-      const contract = new ethers.Contract(nftAddress, erc721Abi, provider);
+      const contract = new ethers.Contract(params.nftAddress, erc721Abi, provider);
       const balance = await contract.balanceOf(address);
 
       const balanceBig = BigInt(balance.toString());
@@ -146,54 +179,33 @@ export function ownsNFT(
   return {
     rule,
     definition: {
-      type: "ownsAnyNFT",
+      type: "hasNFT",
       params: {
-        nftAddress,
+        nftAddress: params.nftAddress,
       },
       chainId,
     },
   };
 }
 
-/**
- * Checks if the user has sent at least `minCount` transactions (nonce >= minCount).
- */
-export function numTransactionsAtLeast(networks: Network[], chainId: string, minCount: bigint): BuiltRule {
-  const rule = async (address: string): Promise<RuleResult> => {
-    const ruleName = `Number of transactions >= ${minCount}`;
-    try {
-      const provider = getProviderByChainId(networks, chainId);
-      if (!provider) {
-        throw new Error(`No provider found for chainId: ${chainId}`);
-      }
-
-      const txCount = await provider.getTransactionCount(address);
-      const txCountBig = BigInt(txCount);
-      const success = txCountBig >= minCount;
-      return { name: ruleName, success };
-    } catch (err: any) {
-      return { name: ruleName, success: false, error: err.message };
-    }
-  };
-
-  return {
-    rule,
-    definition: {
-      type: "numTransactionsAtLeast",
-      params: {
-        minCount: minCount.toString()
-      },
-      chainId
-    }
-  };
+export interface hasNFTTokenIdParams {
+  nftAddress: string;
+  tokenId: bigint;
 }
-
 /**
- * Checks if `address` owns an ERC721 (tokenId) at `nftAddress`.
+ * Checks if `address` has an ERC721 (tokenId) at `nftAddress`.
  */
-export function ownsNFTTokenId(networks: Network[], chainId: string, nftAddress: string, tokenId: bigint): BuiltRule {
+export function hasNFTTokenId(networks: Network[], chainId: string, params: hasNFTTokenIdParams): BuiltRule {
+  if (params.nftAddress === undefined || params.nftAddress === null) {
+    throw new Error("`nftAddress` is required");
+  }
+
+  if (params.tokenId === undefined || params.tokenId === null) {
+    throw new Error("`tokenId` is required");
+  }
+
   const rule = async (address: string): Promise<RuleResult> => {
-    const ruleName = `User owns NFT ${nftAddress} #${tokenId}`;
+    const ruleName = `Address has NFT ${params.nftAddress} #${params.tokenId}`;
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -205,9 +217,51 @@ export function ownsNFTTokenId(networks: Network[], chainId: string, nftAddress:
         "function ownerOf(uint256 tokenId) external view returns (address)"
       ];
 
-      const nftContract = new ethers.Contract(nftAddress, erc721Abi, provider);
-      const actualOwner = await nftContract.ownerOf(tokenId);
+      const nftContract = new ethers.Contract(params.nftAddress, erc721Abi, provider);
+      const actualOwner = await nftContract.ownerOf(params.tokenId);
       const success = actualOwner.toLowerCase() === address.toLowerCase();
+      return { name: ruleName, success };
+    } catch (err: any) {
+      return { name: ruleName, success: false, error: err.message };
+    }
+  };
+
+  return {
+    rule,
+    definition: {
+      type: "hasNFTTokenId",
+      params: {
+        nftAddress: params.nftAddress,
+        tokenId: params.tokenId.toString()
+      },
+      chainId
+    }
+  };
+}
+
+export interface numTransactionsAtLeastParams {
+  minCount: bigint;
+}
+
+/**
+ * Checks if the user has sent at least `minCount` transactions (nonce >= minCount).
+ */
+export function numTransactionsAtLeast(networks: Network[], chainId: string, params: numTransactionsAtLeastParams): BuiltRule {
+  if (params.minCount === undefined || params.minCount === null) {
+    throw new Error("`minCount` is required");
+  }
+
+  const rule = async (address: string): Promise<RuleResult> => {
+    const ruleName = `Number of transactions >= ${params.minCount}`;
+    try {
+      const provider = getProviderByChainId(networks, chainId);
+      if (!provider) {
+        throw new Error(`No provider found for chainId: ${chainId}`);
+      }
+
+      const txCount = await provider.getTransactionCount(address);
+      const txCountBig = BigInt(txCount);
+      const success = txCountBig >= params.minCount;
       return { name: ruleName, success };
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message };
@@ -219,18 +273,19 @@ export function ownsNFTTokenId(networks: Network[], chainId: string, nftAddress:
     definition: {
       type: "numTransactionsAtLeast",
       params: {
-        nftAddress,
-        tokenId: tokenId.toString()
+        minCount: params.minCount.toString()
       },
       chainId
     }
   };
 }
 
+export interface addressIsContractParams { }
+
 /**
  * Checks if the address is a contract.
  */
-export function addressIsContract(networks: Network[], chainId: string): BuiltRule {
+export function addressIsContract(networks: Network[], chainId: string, params: addressIsContractParams): BuiltRule {
   const rule = async (address: string): Promise<RuleResult> => {
     const ruleName = `Address is contract: ${address}`;
     try {
@@ -252,16 +307,17 @@ export function addressIsContract(networks: Network[], chainId: string): BuiltRu
     rule,
     definition: {
       type: "addressIsContract",
-      params: {},
+      params,
       chainId
     }
   };
 }
 
+export interface addressIsEOAParams { }
 /**
  * Checks if the address is EOA.
  */
-export function addressIsEOA(networks: Network[], chainId: string): BuiltRule {
+export function addressIsEOA(networks: Network[], chainId: string, params: addressIsEOAParams): BuiltRule {
   const rule = async (address: string): Promise<RuleResult> => {
     const ruleName = `Address is EOA: ${address}`;
     try {
@@ -283,7 +339,7 @@ export function addressIsEOA(networks: Network[], chainId: string): BuiltRule {
     rule,
     definition: {
       type: "addressIsEOA",
-      params: {},
+      params,
       chainId
     },
   };

@@ -3,7 +3,7 @@
 import fs from "fs";
 import { expect } from "chai";
 import { ethers, JsonRpcProvider } from "ethers";
-import { addressIsContract, addressIsEOA, contractBalanceAtLeast, erc20BalanceAtLeast, numTransactionsAtLeast, ownsNFT, ownsNFTTokenId, walletBalanceAtLeast } from "../src/rules";
+import { addressIsContract, addressIsEOA, contractBalanceAtLeast, erc20BalanceAtLeast, hasNFT, hasNFTTokenId, numTransactionsAtLeast, walletBalanceAtLeast } from "../src/rules";
 import { EngineConfig } from "../src/types";
 
 /**
@@ -70,7 +70,7 @@ describe("Single Rules", function() {
   describe("walletBalanceAtLeast Rule", function() {
     it("should pass if the wallet has enough balance", async function() {
       // Anvil seeds accounts with 10,000 ETH
-      const r = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, ethers.parseEther("1"));
+      const r = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther("1") });
       const result = await r.rule(signer0Addr);
       expect(result.success).to.be.true;
       if (!result.success) {
@@ -79,7 +79,7 @@ describe("Single Rules", function() {
     });
 
     it("should fail if the wallet has less than the required balance", async function() {
-      const r = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, ethers.parseEther("1000000"));
+      const r = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther("1000000") });
       const result = await r.rule(signer0Addr);
       expect(result.success).to.be.false;
       expect(result.error).to.be.undefined;
@@ -88,13 +88,13 @@ describe("Single Rules", function() {
 
   describe("contractBalanceAtLeast Rule", function() {
     it("should pass if contract balance is >= required Wei", async function() {
-      const r = contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, contractAddress, ethers.parseEther("1"))
+      const r = contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther("1") })
       const result = await r.rule();
       expect(result.success).to.be.true;
     });
 
     it("should fail if the contract has less than the required Wei", async function() {
-      const r = contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, contractAddress, ethers.parseEther("2"))
+      const r = contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther("2") })
       const result = await r.rule();
       expect(result.success).to.be.false;
     });
@@ -107,19 +107,19 @@ describe("Single Rules", function() {
         value: ethers.parseEther("0.001"),
       });
 
-      const r = numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, BigInt(1))
+      const r = numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, { minCount: 1n })
       const result = await r.rule(signer1Addr);
       expect(result.success).to.be.true;
     });
 
     it("should fail based on the user's transaction count", async function() {
-      const r = numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, BigInt(1))
+      const r = numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, { minCount: 1n })
       const result = await r.rule(signer2Addr);
       expect(result.success).to.be.false;
     });
   });
 
-  describe("ownsNFT Rule", function() {
+  describe("hasNFT Rule", function() {
     let nftAddress: string;
     let nftContractUntyped: any
 
@@ -132,24 +132,24 @@ describe("Single Rules", function() {
       nftAddress = await nftContractUntyped.getAddress();
     });
 
-    it("should pass if user owns the NFT", async function() {
+    it("should pass if user has the NFT", async function() {
       // Mint an NFT to signer1
       await (nftContractUntyped as any).mint(signer1);
 
-      const r = ownsNFT(engineConfig.networks, CHAIN_ID_0, nftAddress)
+      const r = hasNFT(engineConfig.networks, CHAIN_ID_0, { nftAddress })
       const result = await r.rule(signer1Addr);
       expect(result.success).to.be.true;
     });
 
-    it("should fail if user does not own the NFT", async function() {
-      const r = ownsNFT(engineConfig.networks, CHAIN_ID_0, nftAddress)
+    it("should fail if user does not have the NFT", async function() {
+      const r = hasNFT(engineConfig.networks, CHAIN_ID_0, { nftAddress })
       const result = await r.rule(signer2Addr);
       expect(result.success).to.be.false;
     });
   });
 
 
-  describe("ownsNFTTokenId Rule", function() {
+  describe("hasNFTTokenId Rule", function() {
     let nftAddress: string;
     let tokenId = BigInt(1);
     let nftContractUntyped: any
@@ -163,17 +163,17 @@ describe("Single Rules", function() {
       nftAddress = await nftContractUntyped.getAddress();
     });
 
-    it("should pass if user owns the NFT token id", async function() {
+    it("should pass if user has the NFT token id", async function() {
       // Mint an NFT to user1
       await (nftContractUntyped as any).mint(signer1);
 
-      const r = ownsNFTTokenId(engineConfig.networks, CHAIN_ID_0, nftAddress, tokenId)
+      const r = hasNFTTokenId(engineConfig.networks, CHAIN_ID_0, { nftAddress, tokenId })
       const result = await r.rule(signer1Addr);
       expect(result.success).to.be.true;
     });
 
-    it("should fail if user does not own the NFT token id", async function() {
-      const r = ownsNFTTokenId(engineConfig.networks, CHAIN_ID_0, nftAddress, tokenId)
+    it("should fail if user does not have the NFT token id", async function() {
+      const r = hasNFTTokenId(engineConfig.networks, CHAIN_ID_0, { nftAddress, tokenId })
       const result = await r.rule(signer2Addr);
       expect(result.success).to.be.false;
     });
@@ -181,13 +181,13 @@ describe("Single Rules", function() {
 
   describe("addressIsEOA Rule", function() {
     it("should pass if address is EOA", async function() {
-      const r = addressIsEOA(engineConfig.networks, CHAIN_ID_0)
+      const r = addressIsEOA(engineConfig.networks, CHAIN_ID_0, {})
       const result = await r.rule(signer0Addr);
       expect(result.success).to.be.true;
     });
 
     it("should fail if address is not EOA", async function() {
-      const r = addressIsEOA(engineConfig.networks, CHAIN_ID_0)
+      const r = addressIsEOA(engineConfig.networks, CHAIN_ID_0, {})
       const result = await r.rule(contractAddress);
       expect(result.success).to.be.false;
     });
@@ -195,13 +195,13 @@ describe("Single Rules", function() {
 
   describe("addressIsContract Rule", function() {
     it("should pass if address is a contract", async function() {
-      const r = addressIsContract(engineConfig.networks, CHAIN_ID_0)
+      const r = addressIsContract(engineConfig.networks, CHAIN_ID_0, {})
       const result = await r.rule(contractAddress);
       expect(result.success).to.be.true;
     });
 
     it("should fail if address is not a contract", async function() {
-      const r = addressIsContract(engineConfig.networks, CHAIN_ID_0)
+      const r = addressIsContract(engineConfig.networks, CHAIN_ID_0, {})
       const result = await r.rule(signer0Addr);
       expect(result.success).to.be.false;
     });
@@ -232,7 +232,7 @@ describe("Single Rules", function() {
 
     it("should pass if user has the required token balance", async function() {
       // signer1 has 100 tokens
-      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, erc20Address, 50n * 100000000000000000n);
+      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { tokenAddress: erc20Address, minTokens: 50n * 100000000000000000n });
       const result = await ruleInstance.rule(signer1Addr);
 
       expect(result.success).to.be.true;
@@ -243,7 +243,7 @@ describe("Single Rules", function() {
 
     it("should fail if user does not have the required token balance", async function() {
       // signer1 has 100 tokens, threshold is 101
-      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, erc20Address, 101n * 100000000000000000n);
+      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { tokenAddress: erc20Address, minTokens: 101n * 100000000000000000n });
       const result = await ruleInstance.rule(signer1Addr);
 
       expect(result.success).to.be.false;
@@ -254,7 +254,7 @@ describe("Single Rules", function() {
 
     it("should pass exactly at the threshold", async function() {
       // signer1 has exactly 100 tokens, threshold is 100
-      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, erc20Address, 100n * 100000000000000000n);
+      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { tokenAddress: erc20Address, minTokens: 100n * 100000000000000000n });
       const result = await ruleInstance.rule(signer1Addr);
 
       expect(result.success).to.be.true;
