@@ -8,7 +8,7 @@ export interface walletBalanceAtLeastParams {
 }
 
 /**
- * Checks if an EOA's wallet balance is >= `minWei`.
+ * Checks if an wallet balance is >= `minWei`.
  */
 export function walletBalanceAtLeast(networks: Network[], chainId: string, params: walletBalanceAtLeastParams): BuiltRule {
   if (params.minWei === undefined || params.minWei === null) {
@@ -17,6 +17,7 @@ export function walletBalanceAtLeast(networks: Network[], chainId: string, param
 
   const rule = async (address?: string): Promise<RuleResult> => {
     const ruleName = `Wallet balance >= ${params.minWei}`;
+
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -62,6 +63,7 @@ export function contractBalanceAtLeast(networks: Network[], chainId: string, par
 
   const rule = async (_: string): Promise<RuleResult> => {
     const ruleName = `Contract balance >= ${params.minWei} at ${params.contractAddress}`;
+
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -108,6 +110,7 @@ export function erc20BalanceAtLeast(networks: Network[], chainId: string, params
 
   const rule = async (address: string): Promise<RuleResult> => {
     const ruleName = `ERC20 balance >= ${params.minTokens} (token: ${params.tokenAddress})`;
+
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -115,8 +118,8 @@ export function erc20BalanceAtLeast(networks: Network[], chainId: string, params
       }
 
       // Minimal ERC-20 ABI with balanceOf
-      const erc20Abi = ["function balanceOf(address) view returns (uint256)"];
-      const contract = new ethers.Contract(params.tokenAddress, erc20Abi, provider);
+      const abi = ["function balanceOf(address) view returns (uint256)"];
+      const contract = new ethers.Contract(params.tokenAddress, abi, provider);
       const balance = await contract.balanceOf(address);
 
       // Compare as BigInt
@@ -156,6 +159,7 @@ export function hasNFT(networks: Network[], chainId: string, params: hasNFTParam
 
   const rule = async (address: string): Promise<RuleResult> => {
     const ruleName = `Address has at least 1 NFT from ${params.nftAddress}`;
+
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -163,8 +167,8 @@ export function hasNFT(networks: Network[], chainId: string, params: hasNFTParam
       }
 
       // Minimal ERC-721 ABI with balanceOf
-      const erc721Abi = ["function balanceOf(address owner) view returns (uint256)"];
-      const contract = new ethers.Contract(params.nftAddress, erc721Abi, provider);
+      const abi = ["function balanceOf(address owner) view returns (uint256)"];
+      const contract = new ethers.Contract(params.nftAddress, abi, provider);
       const balance = await contract.balanceOf(address);
 
       const balanceBig = BigInt(balance.toString());
@@ -206,6 +210,7 @@ export function hasNFTTokenId(networks: Network[], chainId: string, params: hasN
 
   const rule = async (address: string): Promise<RuleResult> => {
     const ruleName = `Address has NFT ${params.nftAddress} #${params.tokenId}`;
+
     try {
       const provider = getProviderByChainId(networks, chainId);
       if (!provider) {
@@ -213,11 +218,11 @@ export function hasNFTTokenId(networks: Network[], chainId: string, params: hasN
       }
 
       // Minimal ERC721 ABI with just "ownerOf"
-      const erc721Abi = [
+      const abi = [
         "function ownerOf(uint256 tokenId) external view returns (address)"
       ];
 
-      const nftContract = new ethers.Contract(params.nftAddress, erc721Abi, provider);
+      const nftContract = new ethers.Contract(params.nftAddress, abi, provider);
       const actualOwner = await nftContract.ownerOf(params.tokenId);
       const success = actualOwner.toLowerCase() === address.toLowerCase();
       return { name: ruleName, success };
@@ -341,6 +346,123 @@ export function addressIsEOA(networks: Network[], chainId: string, params: addre
       type: "addressIsEOA",
       params,
       chainId
+    },
+  };
+}
+
+export interface callContractParams {
+  contractAddress: string;
+  functionName: string;
+  abi: string[];
+  requiredResult: any;
+  compareType: "eq" | "gt" | "gte" | "lt" | "lte";
+}
+
+export function callContract(networks: Network[], chainId: string, params: callContractParams): BuiltRule {
+  if (params.contractAddress === undefined || params.contractAddress === null) {
+    throw new Error("`contractAddress` is required");
+  }
+
+  if (params.functionName === undefined || params.functionName === null) {
+    throw new Error("`functionName` is required");
+  }
+
+  if (params.abi === undefined || params.abi === null || params.abi.length === 0) {
+    throw new Error("`abi` is required");
+  }
+
+  const rule = async (address: string): Promise<RuleResult> => {
+    const ruleName = `callContract ${params.contractAddress} ${params.functionName}`;
+
+    try {
+      const provider = getProviderByChainId(networks, chainId);
+      if (!provider) {
+        throw new Error(`No provider found for chainId: ${chainId}`);
+      }
+
+      const contract = new ethers.Contract(params.contractAddress, params.abi, provider);
+
+      // Fetch the raw result from the contract. In this example, we pass `address` 
+      // to the contract function, but adjust as needed if the function has different arguments.
+      const rawResult = await contract[params.functionName](address);
+
+      let success = false;
+
+      if (typeof rawResult === "boolean") {
+        if (typeof params.requiredResult !== "boolean") {
+          throw new Error(
+            `Contract returned boolean but 'requiredResult' is not boolean.`
+          );
+        }
+
+        if (params.compareType !== "eq") {
+          throw new Error(
+            `compareType '${params.compareType}' not supported for boolean comparison.`
+          );
+        }
+
+        success = (rawResult === params.requiredResult);
+
+      } else if (typeof rawResult === "string") {
+        if (typeof params.requiredResult !== "string") {
+          throw new Error(
+            `Contract returned string but 'requiredResult' is not string.`
+          );
+        }
+
+        if (params.compareType === "eq") {
+          success = (rawResult === params.requiredResult);
+        } else {
+          throw new Error(
+            `compareType '${params.compareType}' not supported for string comparison.`
+          );
+        }
+      } else if (typeof rawResult === "bigint" || typeof rawResult === "number") {
+        const resultAsBigInt: bigint = typeof rawResult === "bigint" ? rawResult : BigInt(rawResult);
+
+        const requiredAsBigInt: bigint = BigInt(params.requiredResult);
+
+        switch (params.compareType) {
+          case "eq":
+            success = (resultAsBigInt === requiredAsBigInt);
+            break;
+          case "gt":
+            success = (resultAsBigInt > requiredAsBigInt);
+            break;
+          case "gte":
+            success = (resultAsBigInt >= requiredAsBigInt);
+            break;
+          case "lt":
+            success = (resultAsBigInt < requiredAsBigInt);
+            break;
+          case "lte":
+            success = (resultAsBigInt <= requiredAsBigInt);
+            break;
+          default:
+            throw new Error(`Unsupported compareType: ${params.compareType}`);
+        }
+      } else {
+        throw new Error(
+          `Unsupported return type from contract function: ${typeof rawResult}`
+        );
+      }
+      return { name: ruleName, success };
+    } catch (err: any) {
+      return { name: ruleName, success: false, error: err.message };
+    }
+  };
+
+  return {
+    rule,
+    definition: {
+      type: "callContract",
+      params: {
+        contractAddress: params.contractAddress,
+        functionName: params.functionName,
+        abi: params.abi,
+        requiredResult: params.requiredResult,
+      },
+      chainId,
     },
   };
 }

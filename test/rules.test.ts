@@ -3,7 +3,7 @@
 import fs from "fs";
 import { expect } from "chai";
 import { ethers, JsonRpcProvider } from "ethers";
-import { addressIsContract, addressIsEOA, contractBalanceAtLeast, erc20BalanceAtLeast, hasNFT, hasNFTTokenId, numTransactionsAtLeast, walletBalanceAtLeast } from "../src/rules";
+import { addressIsContract, addressIsEOA, callContract, callContractParams, contractBalanceAtLeast, erc20BalanceAtLeast, hasNFT, hasNFTTokenId, numTransactionsAtLeast, walletBalanceAtLeast } from "../src/rules";
 import { EngineConfig } from "../src/types";
 
 /**
@@ -256,6 +256,96 @@ describe("Single Rules", function() {
       // signer1 has exactly 100 tokens, threshold is 100
       const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { tokenAddress: erc20Address, minTokens: 100n * 100000000000000000n });
       const result = await ruleInstance.rule(signer1Addr);
+
+      expect(result.success).to.be.true;
+    });
+  });
+
+  describe("callContract Whitelist Rule", function() {
+    let whitelistContract: any;
+    let whitelistAddress: string;
+    let signer0: ethers.Signer;
+    let signer1: ethers.Signer;
+    let signer2: ethers.Signer;
+    let signer0Addr: string;
+    let signer1Addr: string;
+    let signer2Addr: string;
+    let artifact: any;
+
+    before(async function() {
+      // Set up signers (owner and another address)
+      signer0 = await (provider as JsonRpcProvider).getSigner(0); // account #0
+      signer1 = await (provider as JsonRpcProvider).getSigner(1); // account #1
+      signer2 = await (provider as JsonRpcProvider).getSigner(2); // account #1
+      signer0Addr = await signer0.getAddress();
+      signer1Addr = await signer1.getAddress();
+      signer2Addr = await signer2.getAddress();
+
+      // Read the Whitelist contract artifact (adjust path as needed)
+      artifact = JSON.parse(
+        fs.readFileSync("out/Whitelist.sol/Whitelist.json", "utf-8")
+      );
+
+      const factory = new ethers.ContractFactory(
+        artifact.abi,
+        artifact.bytecode.object,
+        signer0
+      );
+      whitelistContract = await factory.deploy();
+      await whitelistContract.waitForDeployment();
+
+      whitelistAddress = await whitelistContract.getAddress();
+
+      // add signer1 to whitelist
+      const txAdd = await whitelistContract.connect(signer0).addAddress(signer1Addr);
+      await txAdd.wait();
+    });
+
+    it("should pass if user is whitelisted (requiredResult = true)", async function() {
+      const params: callContractParams = {
+        contractAddress: whitelistAddress,
+        functionName: "isWhitelisted",
+        abi: artifact.abi,
+        requiredResult: true,
+        compareType: "eq",
+      };
+
+      const r = callContract(engineConfig.networks, CHAIN_ID_0, params);
+      const result = await r.rule(signer1Addr);
+
+      expect(result.success).to.be.true;
+      if (!result.success) {
+        console.error(`Error: ${result.error}`);
+      }
+    });
+
+    it("should fail if user is not whitelisted (requiredResult = true)", async function() {
+      // signer2 was never whitelisted
+      const params: callContractParams = {
+        contractAddress: whitelistAddress,
+        functionName: "isWhitelisted",
+        abi: artifact.abi,
+        requiredResult: true, // We want to test for failure, so true
+        compareType: "eq",
+      };
+
+      const r = callContract(engineConfig.networks, CHAIN_ID_0, params);
+      const result = await r.rule(signer2Addr);
+
+      expect(result.success).to.be.false;
+    });
+
+    it("should pass if user is not whitelisted (requiredResult = false)", async function() {
+      const params: callContractParams = {
+        contractAddress: whitelistAddress,
+        functionName: "isWhitelisted",
+        abi: artifact.abi,
+        requiredResult: false,  // We expect the function call to return false
+        compareType: "eq",
+      };
+
+      const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+      const result = await ruleInstance.rule(signer2Addr);
 
       expect(result.success).to.be.true;
     });

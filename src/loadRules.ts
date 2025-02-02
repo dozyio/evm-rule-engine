@@ -49,32 +49,25 @@ export function createRulesFromDefinitions(networks: Network[], definitions: Rul
     // For each known type, call the factory with the needed params
     switch (type) {
       case "walletBalanceAtLeast":
-        // return factory(networks, chainId, params.minWei);
         return factory(networks, chainId, params);
 
       case "contractBalanceAtLeast":
-        // return factory(networks, chainId, params.contractAddress, params.minWei);
         return factory(networks, chainId, params);
 
       case "erc20BalanceAtLeast":
-        // return factory(networks, chainId, params.tokenAddress, params.minTokens);
         return factory(networks, chainId, params);
 
       case "hasNFT":
-        // return factory(networks, chainId, params.nftAddress);
         return factory(networks, chainId, params);
 
       case "hasNFTTokenId":
-        // return factory(networks, chainId, params.nftAddress, params.tokenId);
         return factory(networks, chainId, params);
 
       case "numTransactionsAtLeast":
-        // return factory(networks, chainId, params.minCount);
         return factory(networks, chainId, params);
 
       case "addressIsContract":
       case "addressIsEOA":
-        // return factory(networks, chainId);
         return factory(networks, chainId, params);
 
       default:

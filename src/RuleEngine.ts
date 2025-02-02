@@ -1,5 +1,5 @@
 // src/RuleEngine.ts
-import { BuiltRule, EngineConfig, EvaluateResult, Network, RuleResult } from "./types";
+import { BuiltRule, EngineConfig, EvaluateResult, Network } from "./types";
 
 export class RuleEngine {
   private rules: BuiltRule[] = [];
@@ -63,33 +63,6 @@ export class RuleEngine {
    * If ANY rule fails, the overall result is false.
    */
   public async evaluate(address: string): Promise<EvaluateResult> {
-    // const results: RuleResult[] = [];
-    //
-    // let success = true // default to true; if any rule fails, we mark false
-    //
-    // for (const { rule } of this.rules) {
-    //   try {
-    //     const result = rule(address);
-    //     const resolved = result instanceof Promise ? await result : result;
-    //     if (!resolved.success) {
-    //       success = false;
-    //     }
-    //     results.push(resolved);
-    //   } catch (err: any) {
-    //     success = false
-    //     results.push({
-    //       name: "Unnamed Rule",
-    //       success: false,
-    //       error: err.message
-    //     });
-    //   }
-    // }
-    //
-    // return {
-    //   ruleResults: results,
-    //   result: success
-    // }
-    // Build an array of Promises for each rule execution
     const promises = this.rules.map(({ rule }, index) => {
       return (async () => {
         try {
@@ -105,10 +78,8 @@ export class RuleEngine {
       })();
     });
 
-    // Execute all rule checks concurrently
     const results = await Promise.all(promises);
 
-    // Calculate the overall success
     const success = results.every((res) => res.success);
 
     return {

@@ -16,7 +16,9 @@ import {
   hasNFTParams,
   hasNFTTokenIdParams,
   addressIsContractParams,
-  addressIsEOAParams
+  addressIsEOAParams,
+  callContractParams,
+  callContract
 } from "./rules";
 import { BuiltRule, Network } from "./types";
 
@@ -41,5 +43,7 @@ export const ruleFactories: Record<string, (...args: any[]) => BuiltRule> = {
 
   addressIsContract: (networks: Network[], chainId: string, params: addressIsContractParams) => addressIsContract(networks, chainId, params),
 
-  addressIsEOA: (networks: Network[], chainId: string, params: addressIsEOAParams) => addressIsEOA(networks, chainId, params)
+  addressIsEOA: (networks: Network[], chainId: string, params: addressIsEOAParams) => addressIsEOA(networks, chainId, params),
+
+  callContract: (networks: Network[], chainId: string, params: callContractParams) => callContract(networks, chainId, params)
 };
