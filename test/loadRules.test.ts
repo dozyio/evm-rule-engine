@@ -62,11 +62,12 @@ describe("Load Rules", function() {
         { type: "hasNFTTokenId", chainId: CHAIN_ID_0, params: { nftAddress: address, tokenId: tokenId } },
         { type: "numTransactionsAtLeast", chainId: CHAIN_ID_0, params: { minCount: min } },
         { type: "addressIsContract", chainId: CHAIN_ID_0, params: {} },
-        { type: "addressIsEOA", chainId: CHAIN_ID_0, params: {} }
+        { type: "addressIsEOA", chainId: CHAIN_ID_0, params: {} },
+        { type: "callContract", chainId: CHAIN_ID_0, params: { contractAddress: address, functionName: "test", abi: ["test"] } }
       ];
 
       const rules: BuiltRule[] = createRulesFromDefinitions(networks, definitions);
-      expect(rules).to.have.lengthOf(8);
+      expect(rules).to.have.lengthOf(9);
 
       expect(typeof rules[0].rule).to.eq("function");
       expect(typeof rules[0].definition).to.eq("object");
@@ -116,6 +117,14 @@ describe("Load Rules", function() {
       expect(typeof rules[7].definition).to.eq("object");
       expect(rules[7].definition.chainId).to.eq(CHAIN_ID_0);
       expect(rules[7].definition.type).to.eq("addressIsEOA");
+
+      expect(typeof rules[8].rule).to.eq("function");
+      expect(typeof rules[8].definition).to.eq("object");
+      expect(rules[8].definition.chainId).to.eq(CHAIN_ID_0);
+      expect(rules[8].definition.type).to.eq("callContract");
+      expect(rules[8].definition.params.contractAddress).to.eq(address);
+      expect(rules[8].definition.params.functionName).to.eq("test");
+      expect(rules[8].definition.params.abi).to.deep.eq(["test"]);
     });
 
     it("should throw an error for unknown rule types", function() {

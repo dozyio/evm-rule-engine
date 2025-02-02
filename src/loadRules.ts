@@ -46,28 +46,17 @@ export function createRulesFromDefinitions(networks: Network[], definitions: Rul
       throw new Error(`Unknown rule type: "${type}"`);
     }
 
-    // For each known type, call the factory with the needed params
+    // For each known type, call the factory with params
     switch (type) {
       case "walletBalanceAtLeast":
-        return factory(networks, chainId, params);
-
       case "contractBalanceAtLeast":
-        return factory(networks, chainId, params);
-
       case "erc20BalanceAtLeast":
-        return factory(networks, chainId, params);
-
       case "hasNFT":
-        return factory(networks, chainId, params);
-
       case "hasNFTTokenId":
-        return factory(networks, chainId, params);
-
       case "numTransactionsAtLeast":
-        return factory(networks, chainId, params);
-
       case "addressIsContract":
       case "addressIsEOA":
+      case "callContract":
         return factory(networks, chainId, params);
 
       default:

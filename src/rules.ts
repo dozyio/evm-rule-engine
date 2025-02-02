@@ -371,7 +371,7 @@ export function callContract(networks: Network[], chainId: string, params: callC
     throw new Error("`abi` is required");
   }
 
-  const rule = async (address: string): Promise<RuleResult> => {
+  const rule = async (...ruleParams: any[]): Promise<RuleResult> => {
     const ruleName = `callContract ${params.contractAddress} ${params.functionName}`;
 
     try {
@@ -382,9 +382,7 @@ export function callContract(networks: Network[], chainId: string, params: callC
 
       const contract = new ethers.Contract(params.contractAddress, params.abi, provider);
 
-      // Fetch the raw result from the contract. In this example, we pass `address` 
-      // to the contract function, but adjust as needed if the function has different arguments.
-      const rawResult = await contract[params.functionName](address);
+      const rawResult = await contract[params.functionName](...ruleParams);
 
       let success = false;
 

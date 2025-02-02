@@ -51,11 +51,8 @@ describe("Single Rules", function() {
     signer2Addr = await signer2.getAddress();
 
     // Deploy minimal contract with `receive()`
-    // see Minimal.sol
-    // run `forge build && forge inspect Minimal bytecode`
-    const MinimalContractBytecode = "0x6080604052348015600e575f5ffd5b50604480601a5f395ff3fe608060405236600a57005b5f5ffdfea264697066735822122049f1c634d3cea02d00596dd9b62bcbecb4f505abbd0cde4d94fe400d47116b5864736f6c634300081c0033"
-    // Deploy via signer0
-    const factory = new ethers.ContractFactory([], MinimalContractBytecode, signer0);
+    const artifact = JSON.parse(fs.readFileSync("out/Minimal.sol/Minimal.json", "utf-8"));
+    const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode.object, signer0);
     const contract = await factory.deploy();
     await contract.waitForDeployment();
 
@@ -348,6 +345,368 @@ describe("Single Rules", function() {
       const result = await ruleInstance.rule(signer2Addr);
 
       expect(result.success).to.be.true;
+    });
+  });
+
+  describe("TestReturnTypes with callContract", function() {
+    let testContract: any;
+    let testContractAddress: string;
+    let artifact: any;
+
+    before(async function() {
+      artifact = JSON.parse(
+        fs.readFileSync("out/Testing.sol/TestReturnTypes.json", "utf-8")
+      );
+
+      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode.object, signer0);
+      testContract = await factory.deploy();
+      await testContract.waitForDeployment();
+
+      testContractAddress = await testContract.getAddress();
+    });
+
+    // Now we add our tests below...
+    describe("Boolean returns", function() {
+      it("should pass when returnTrue == true (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnTrue",
+          abi: artifact.abi,
+          requiredResult: true,
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+        // 'rule()' calls the contract function with no args;
+        // if your function needed arguments, you'd pass them in: rule(arg1, arg2, ...)
+
+        expect(result.success).to.be.true;
+        if (!result.success) {
+          console.error(result.error);
+        }
+      });
+
+      it("should fail when returnTrue != false (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnTrue",
+          abi: artifact.abi,
+          requiredResult: false,
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false; // Because the contract returns true, not false
+      });
+
+      it("should pass when returnFalse == false (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnFalse",
+          abi: artifact.abi,
+          requiredResult: false,
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true;
+      });
+
+      it("should fail when returnFalse != true (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnFalse",
+          abi: artifact.abi,
+          requiredResult: true,
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false;
+      });
+    });
+
+    describe("String returns", function() {
+      it("should pass when returnString == 'TEST' (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnString",
+          abi: artifact.abi,
+          requiredResult: "TEST",
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true;  // The contract returns "TEST"
+      });
+
+      it("should fail when returnString != 'WRONG' (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnString",
+          abi: artifact.abi,
+          requiredResult: "WRONG",
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false; // Because the contract actually returns "TEST"
+      });
+    });
+
+    describe("Unsigned integer returns", function() {
+      it("should pass when returnUint == 100 (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 100, // or "100", as it will get converted to BigInt
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true;
+      });
+
+      it("should fail when returnUint == 101 (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 101,
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false;
+      });
+
+      it("should pass when returnUint >= 100 (compare gte)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 100, // or "100", as it will get converted to BigInt
+          compareType: "gte",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true;
+      });
+
+      it("should fail when returnUint >= 101 (compare gte)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 101, // or "100", as it will get converted to BigInt
+          compareType: "gte",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false;
+      });
+
+      it("should pass when returnUint > 50 (compare gt)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 50,
+          compareType: "gt",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true; // 100 > 50
+      });
+
+      it("should fail when returnUint > 101 (compare gt)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 101,
+          compareType: "gt",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false; // 100 is not > 101
+      });
+
+      it("should pass when returnUint < 101 (compare lt)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 101,
+          compareType: "lt",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true; // < 101
+      });
+
+      it("should pass when returnUint <= 100 (compare lte)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 100,
+          compareType: "lte",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true; // 100 <= 100
+      });
+
+      it("should fail when returnUint <= 99 (compare lte)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnUint",
+          abi: artifact.abi,
+          requiredResult: 99,
+          compareType: "lte",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false; // 100 <= 99
+      });
+    });
+
+    describe("Signed integer returns", function() {
+      it("should pass when returnPositiveInt == 100 (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnPositiveInt",
+          abi: artifact.abi,
+          requiredResult: 100,
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true; // matches 100
+      });
+
+      it("should fail when returnPositiveInt == 101 (compare eq)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnPositiveInt",
+          abi: artifact.abi,
+          requiredResult: 101,
+          compareType: "eq",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false; // does not match 101
+      });
+
+      it("should pass when returnPositiveInt > 99 (compare gt)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnPositiveInt",
+          abi: artifact.abi,
+          requiredResult: 99,
+          compareType: "gt",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true; // matches 100
+      });
+
+      it("should fail when returnPositiveInt > 100 (compare gt)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnPositiveInt",
+          abi: artifact.abi,
+          requiredResult: 100,
+          compareType: "gt",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.false; // matches 100
+      });
+
+      it("should pass when returnPositiveInt >= 100 (compare gte)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnPositiveInt",
+          abi: artifact.abi,
+          requiredResult: 100,
+          compareType: "gte",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true; // matches 100
+      });
+
+      it("should pass when returnNegativeInt < 0 (compare lt)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnNegativeInt",
+          abi: artifact.abi,
+          requiredResult: 0,
+          compareType: "lt",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true;
+      });
+
+      it("should pass when returnNegativeInt <= 100 (compare lte)", async function() {
+        const params: callContractParams = {
+          contractAddress: testContractAddress,
+          functionName: "returnNegativeInt",
+          abi: artifact.abi,
+          requiredResult: -100,
+          compareType: "lte",
+        };
+
+        const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params);
+        const result = await ruleInstance.rule();
+
+        expect(result.success).to.be.true;
+      });
     });
   });
 });
