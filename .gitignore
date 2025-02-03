@@ -16,4 +16,6 @@ docs/
 out/
 node_modules/
 coverage/
+.coverage/
 .nyc_output/
+dist/

@@ -1,27 +1,50 @@
 {
   "name": "evm-rule-engine",
   "version": "0.0.1",
-  "description": "A rule engine for EVM accounts and contract",
+  "description": "A rule engine for EVM accounts and contracts",
   "author": "dozyio",
-  "license": "MIT",
+  "license": "Apache-2.0 OR MIT",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "typechain": "typechain --target ethers-v6 --out-dir typechain-types 'out/**/*.json'",
+    "lint": "aegir lint",
     "build:contract": "forge build",
-    "test": "npm run build:contract && mocha --require ts-node/register --timeout 10000 --bail 'test/*.test.ts'",
-    "test:coverage": "npm run build:contract && nyc --reporter=html --reporter=text --reporter=lcov mocha --require ts-node/register --timeout 10000 --bail 'test/*.test.ts' && open coverage/index.html"
+    "test2": "npm run build:contract && mocha --require ts-node/register --timeout 10000 --bail 'test/*.spec.ts'",
+    "test2:coverage": "npm run build:contract && nyc --reporter=html --reporter=text --reporter=lcov mocha --require ts-node/register --timeout 10000 --bail 'test/*.test.ts' && open coverage/index.html",
+    "clean": "aegir clean",
+    "build": "aegir build",
+    "test": "npm run build:contract && aegir test",
+    "test:node": "npm run build:contract && aegir test -t node --cov",
+    "test:browser": "npm run build:contract && aegir test -t browser --cov",
+    "dep-check": "aegir dep-check"
   },
+  "files": [
+    "src",
+    "dist",
+    "!dist/test",
+    "!**/*.tsbuildinfo"
+  ],
   "dependencies": {
     "@types/node": "^22.10.2",
     "ethers": "^6.13.4"
   },
   "devDependencies": {
-    "@typechain/ethers-v6": "^0.5.1",
     "@types/chai": "^5.0.1",
     "@types/mocha": "^10.0.10",
+    "aegir": "^45.0.9",
     "chai": "^5.1.2",
     "mocha": "^11.0.1",
     "nyc": "^17.1.0",
-    "ts-node": "^10.9.2",
-    "typechain": "^8.3.2"
+    "ts-node": "^10.9.2"
+  },
+  "eslintConfig": {
+    "extends": "ipfs",
+    "parserOptions": {
+      "sourceType": "module"
+    },
+    "ignorePatterns": [
+      "!.aegir.js",
+      "**/dist"
+    ]
   }
 }

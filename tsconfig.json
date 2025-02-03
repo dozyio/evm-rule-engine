@@ -1,9 +1,12 @@
 {
+  "extends": "aegir/src/config/tsconfig.aegir.json",
   "compilerOptions": {
-    // ...other options...
-    "types": ["node", "mocha"],
-    "esModuleInterop": true,
-    "target": "ES2024",
-    "moduleResolution": "bundler"
-  }
+    "outDir": "dist",
+    "module": "ESNext"
+  },
+  "include": [
+    "src",
+    "test",
+    "out/**/*.json"
+  ]
 }
