@@ -4,7 +4,7 @@
 // import path from 'path'
 import { expect } from 'chai'
 import { ethers, type JsonRpcProvider } from 'ethers'
-import { RuleEngine } from '../src/RuleEngine.js'
+import { EVMRuleEngine } from '../src/EVMRuleEngine.js'
 import { addressIsEOA, contractBalanceAtLeast, createRulesFromDefinitions, numTransactionsAtLeast, walletBalanceAtLeast } from '../src/rules.js'
 import { type EngineConfig, type Rule, type RuleDefinition } from '../src/types.js'
 // import { rulesFromJsonFile } from '../src/utils'
@@ -66,11 +66,11 @@ describe('Rule Engine', function () {
       const config: EngineConfig = {
         networks: []
       }
-      expect(() => new RuleEngine(config)).to.throw('No networks configured')
+      expect(() => new EVMRuleEngine(config)).to.throw('No networks configured')
     })
 
     it('should succeed when evaluating multiple rules with successful rules', async function () {
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
 
       engine.addRules([
         addressIsEOA(engineConfig.networks, CHAIN_ID_0, {}),
@@ -87,7 +87,7 @@ describe('Rule Engine', function () {
     })
 
     it('should fail when evaluating multiple rules with failing rule', async function () {
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
 
       engine.addRules([
         walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') }),
@@ -111,7 +111,7 @@ describe('Rule Engine', function () {
         }
       }
 
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
       engine.addRules([
         {
           rule: forcedErrorRule(),
@@ -130,14 +130,14 @@ describe('Rule Engine', function () {
     })
 
     it('should add a rule to the Rule Engine', async function () {
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
       const rule = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') })
       engine.addRule(rule)
       expect(engine.getRuleDefinitions()).to.have.lengthOf(1)
     })
 
     it('should add multiple single rules to the Rule Engine', async function () {
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
       const rule1 = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') })
       engine.addRule(rule1)
       const rule2 = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') })
@@ -146,7 +146,7 @@ describe('Rule Engine', function () {
     })
 
     it('should succeed when evaluating multiple rules from multiple chains', async function () {
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
 
       engine.addRules([
         addressIsEOA(engineConfig.networks, CHAIN_ID_0, {}),
@@ -168,7 +168,7 @@ describe('Rule Engine', function () {
         { type: 'numTransactionsAtLeast', chainId: CHAIN_ID_1, params: { minCount: '5' } }
       ]
 
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
       engine.addRules(createRulesFromDefinitions(engineConfig.networks, mockJson))
 
       const rulesFromEngine = engine.getRuleDefinitions()
@@ -184,7 +184,7 @@ describe('Rule Engine', function () {
         { type: 'numTransactionsAtLeast', chainId: CHAIN_ID_1, params: { minCount: '5' } }
       ]
 
-      const engine = new RuleEngine(engineConfig)
+      const engine = new EVMRuleEngine(engineConfig)
       engine.addRules(createRulesFromDefinitions(engineConfig.networks, mockJson))
       const exportedJson = engine.exportRulesAsJson()
 

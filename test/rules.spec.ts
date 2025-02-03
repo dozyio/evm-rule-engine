@@ -256,7 +256,6 @@ describe('Single Rules', function () {
     let signer2: ethers.Signer
     let signer1Addr: string
     let signer2Addr: string
-    let artifact: any
 
     before(async function () {
       // Set up signers (owner and another address)
@@ -331,7 +330,6 @@ describe('Single Rules', function () {
   describe('TestReturnTypes with callContract', function () {
     let testContract: any
     let testContractAddress: string
-    let artifact: any
 
     before(async function () {
       const factory = new ethers.ContractFactory(testArtifact.abi, testArtifact.bytecode.object, signer0)

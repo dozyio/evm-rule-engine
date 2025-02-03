@@ -1,7 +1,7 @@
-// src/RuleEngine.ts
+// src/EVMRuleEngine.ts
 import { type BuiltRule, type EngineConfig, type EvaluateResult, type Network } from './types.js'
 
-export class RuleEngine {
+export class EVMRuleEngine {
   private readonly rules: BuiltRule[] = []
   private readonly networks: Network[] = []
 
