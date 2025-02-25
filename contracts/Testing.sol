@@ -8,20 +8,20 @@ pragma solidity ^0.8.20;
  *      the 'callContract' rule in a variety of scenarios.
  */
 contract TestReturnTypes {
-    function returnTrue () external pure returns (bool) {
+    function returnTrue() external pure returns (bool) {
         return true;
     }
 
-    function returnFalse () external pure returns (bool) {
+    function returnFalse() external pure returns (bool) {
         return false;
     }
 
     function returnString() external pure returns (string memory) {
-      return "TEST";
+        return "TEST";
     }
 
     function returnUint() external pure returns (uint256) {
-        return uint256(100); 
+        return uint256(100);
     }
 
     function returnPositiveInt() external pure returns (int256) {
