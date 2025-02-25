@@ -5,7 +5,7 @@
 import { expect } from 'chai'
 import { ethers, type JsonRpcProvider } from 'ethers'
 import { EVMRuleEngine } from '../src/EVMRuleEngine.js'
-import { addressIsEOA, contractBalanceAtLeast, createRulesFromDefinitions, numTransactionsAtLeast, walletBalanceAtLeast } from '../src/rules.js'
+import { addressIsEOA, contractBalance, createRulesFromDefinitions, numTransactions, walletBalance } from '../src/rules.js'
 import { type EngineConfig, type Rule, type RuleDefinition } from '../src/types.js'
 // import { rulesFromJsonFile } from '../src/utils'
 
@@ -47,7 +47,8 @@ describe('Rule Engine', function () {
     // Deploy minimal contract with `receive()`
     // see Minimal.sol
     // run `forge build && forge inspect Minimal bytecode`
-    const MinimalContractBytecode = '0x6080604052348015600e575f5ffd5b50604480601a5f395ff3fe608060405236600a57005b5f5ffdfea264697066735822122049f1c634d3cea02d00596dd9b62bcbecb4f505abbd0cde4d94fe400d47116b5864736f6c634300081c0033'
+    const MinimalContractBytecode =
+      '0x6080604052348015600e575f5ffd5b50604480601a5f395ff3fe608060405236600a57005b5f5ffdfea264697066735822122049f1c634d3cea02d00596dd9b62bcbecb4f505abbd0cde4d94fe400d47116b5864736f6c634300081c0033'
     // Deploy via signer0
     const factory = new ethers.ContractFactory([], MinimalContractBytecode, signer0)
     const contract = await factory.deploy()
@@ -74,15 +75,24 @@ describe('Rule Engine', function () {
 
       engine.addRules([
         addressIsEOA(engineConfig.networks, CHAIN_ID_0, {}),
-        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') }),
-        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther('1') }),
-        numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, { minCount: BigInt(1) })
+        walletBalance(engineConfig.networks, CHAIN_ID_0, {
+          value: ethers.parseEther('1'),
+          compareType: 'gte'
+        }),
+        contractBalance(engineConfig.networks, CHAIN_ID_0, {
+          contractAddress,
+          value: ethers.parseEther('1'),
+          compareType: 'gte'
+        }),
+        numTransactions(engineConfig.networks, CHAIN_ID_0, {
+          value: BigInt(1),
+          compareType: 'gte'
+        })
       ])
 
       const { result, ruleResults } = await engine.evaluate(signer0Addr)
 
       expect(ruleResults).to.have.lengthOf(4)
-
       expect(result).to.eq(true)
     })
 
@@ -90,18 +100,23 @@ describe('Rule Engine', function () {
       const engine = new EVMRuleEngine(engineConfig)
 
       engine.addRules([
-        walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') }),
-        contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther('2') })
+        walletBalance(engineConfig.networks, CHAIN_ID_0, {
+          value: ethers.parseEther('1'),
+          compareType: 'gte'
+        }),
+        contractBalance(engineConfig.networks, CHAIN_ID_0, {
+          contractAddress,
+          value: ethers.parseEther('2'),
+          compareType: 'gte'
+        })
       ])
 
       const { result, ruleResults } = await engine.evaluate(signer0Addr)
 
       expect(ruleResults).to.have.lengthOf(2)
-
       expect(result).to.eq(false)
       const failingRule = ruleResults.find(r => !r.success)
-      // expect(failingRule).to.exist
-      expect(failingRule?.name).to.match(/Contract balance >=/)
+      expect(failingRule?.name).to.match(/Contract balance/)
     })
 
     it('should mark the rule as failed if it throws an error', async function () {
@@ -131,16 +146,25 @@ describe('Rule Engine', function () {
 
     it('should add a rule to the Rule Engine', async function () {
       const engine = new EVMRuleEngine(engineConfig)
-      const rule = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') })
+      const rule = walletBalance(engineConfig.networks, CHAIN_ID_0, {
+        value: ethers.parseEther('1'),
+        compareType: 'gte'
+      })
       engine.addRule(rule)
       expect(engine.getRuleDefinitions()).to.have.lengthOf(1)
     })
 
     it('should add multiple single rules to the Rule Engine', async function () {
       const engine = new EVMRuleEngine(engineConfig)
-      const rule1 = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') })
+      const rule1 = walletBalance(engineConfig.networks, CHAIN_ID_0, {
+        value: ethers.parseEther('1'),
+        compareType: 'gte'
+      })
       engine.addRule(rule1)
-      const rule2 = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') })
+      const rule2 = walletBalance(engineConfig.networks, CHAIN_ID_0, {
+        value: ethers.parseEther('1'),
+        compareType: 'gte'
+      })
       engine.addRule(rule2)
       expect(engine.getRuleDefinitions()).to.have.lengthOf(2)
     })
@@ -156,7 +180,6 @@ describe('Rule Engine', function () {
       const { result, ruleResults } = await engine.evaluate(signer0Addr)
 
       expect(ruleResults).to.have.lengthOf(2)
-
       expect(result).to.eq(true)
     })
   })
@@ -164,8 +187,8 @@ describe('Rule Engine', function () {
   describe('Load and Export', function () {
     it('should load rules into Rule Engine from json object', async function () {
       const mockJson: RuleDefinition[] = [
-        { type: 'walletBalanceAtLeast', chainId: CHAIN_ID_0, params: { minWei: '1000' } },
-        { type: 'numTransactionsAtLeast', chainId: CHAIN_ID_1, params: { minCount: '5' } }
+        { type: 'walletBalance', chainId: CHAIN_ID_0, params: { value: '1000', compareType: 'gte' } },
+        { type: 'numTransactions', chainId: CHAIN_ID_1, params: { value: '5', compareType: 'gte' } }
       ]
 
       const engine = new EVMRuleEngine(engineConfig)
@@ -174,14 +197,14 @@ describe('Rule Engine', function () {
       const rulesFromEngine = engine.getRuleDefinitions()
       expect(rulesFromEngine).to.be.an('array')
       expect(rulesFromEngine).to.have.lengthOf(2)
-      expect(rulesFromEngine[0].type).to.eq('walletBalanceAtLeast')
-      expect(rulesFromEngine[1].type).to.eq('numTransactionsAtLeast')
+      expect(rulesFromEngine[0].type).to.eq('walletBalance')
+      expect(rulesFromEngine[1].type).to.eq('numTransactions')
     })
 
     it('should load rules into Rule Engine from json object and export object', async function () {
       const mockJson: RuleDefinition[] = [
-        { type: 'walletBalanceAtLeast', chainId: CHAIN_ID_0, params: { minWei: '1000' } },
-        { type: 'numTransactionsAtLeast', chainId: CHAIN_ID_1, params: { minCount: '5' } }
+        { type: 'walletBalance', chainId: CHAIN_ID_0, params: { value: '1000', compareType: 'gte' } },
+        { type: 'numTransactions', chainId: CHAIN_ID_1, params: { value: '5', compareType: 'gte' } }
       ]
 
       const engine = new EVMRuleEngine(engineConfig)
@@ -195,13 +218,13 @@ describe('Rule Engine', function () {
     // it('should throw if loaded rules are invalid', async function () {
     //   const tempJsonPath = path.join(__dirname, 'tempRules.json')
     //   const mockJson = JSON.stringify([
-    //     { type: 'walletBalanceAtLeast', chainId: CHAIN_ID_0, params: {} } // missing minWei
+    //     { type: 'walletBalance', chainId: CHAIN_ID_0, params: {} } // missing value/compareType
     //   ])
     //
     //   // Write a temporary JSON file for testing
     //   fs.writeFileSync(tempJsonPath, mockJson, 'utf8')
     //
-    //   expect(() => rulesFromJsonFile(engineConfig.networks, tempJsonPath)).to.throw('`minWei` is required')
+    //   expect(() => rulesFromJsonFile(engineConfig.networks, tempJsonPath)).to.throw('`value` is required')
     //
     //   // Clean up
     //   fs.unlinkSync(tempJsonPath)

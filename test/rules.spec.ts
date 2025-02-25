@@ -8,7 +8,19 @@ import erc20Artifact from '../out/MockERC20.sol/MockToken.json' with { type: 'js
 import nftArtifact from '../out/MockNFT.sol/MockNFT.json' with { type: 'json' }
 import testArtifact from '../out/Testing.sol/TestReturnTypes.json' with { type: 'json' }
 import whitelistArtifact from '../out/Whitelist.sol/Whitelist.json' with { type: 'json' }
-import { addressIsContract, addressIsEOA, callContract, type callContractParams, contractBalanceAtLeast, erc20BalanceAtLeast, hasNFT, hasNFTTokenId, numTransactionsAtLeast, walletBalanceAtLeast, createRulesFromDefinitions } from '../src/rules.js'
+import {
+  addressIsContract,
+  addressIsEOA,
+  callContract,
+  type callContractParams,
+  contractBalance,
+  erc20Balance,
+  hasNFT,
+  hasNFTTokenId,
+  numTransactions,
+  walletBalance,
+  createRulesFromDefinitions
+} from '../src/rules.js'
 import { type BuiltRule, type EngineConfig, type Network, type RuleDefinition } from '../src/types.js'
 
 /**
@@ -47,14 +59,13 @@ describe('Single Rules', function () {
   before(async function () {
     signer0 = await (provider as JsonRpcProvider).getSigner(0) // account #0
     signer1 = await (provider as JsonRpcProvider).getSigner(1) // account #1
-    signer2 = await (provider as JsonRpcProvider).getSigner(2) // account #1
+    signer2 = await (provider as JsonRpcProvider).getSigner(2) // account #2
 
     signer0Addr = await signer0.getAddress()
     signer1Addr = await signer1.getAddress()
     signer2Addr = await signer2.getAddress()
 
     // Deploy minimal contract with `receive()`
-    // const artifact = JSON.parse(fs.readFileSync('out/Minimal.sol/Minimal.json', 'utf-8'))
     const factory = new ethers.ContractFactory(minimalArtifact.abi, minimalArtifact.bytecode.object, signer0)
     const contract = await factory.deploy()
     await contract.waitForDeployment()
@@ -67,50 +78,50 @@ describe('Single Rules', function () {
     })
   })
 
-  describe('walletBalanceAtLeast Rule', function () {
+  describe('walletBalance Rule', function () {
     it('should pass if the wallet has enough balance', async function () {
       // Anvil seeds accounts with 10,000 ETH
-      const r = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1') })
+      const r = walletBalance(engineConfig.networks, CHAIN_ID_0, { value: ethers.parseEther('1'), compareType: 'gte' })
       const result = await r.rule(signer0Addr)
       expect(result.success).to.eq(true)
     })
 
     it('should fail if the wallet has less than the required balance', async function () {
-      const r = walletBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { minWei: ethers.parseEther('1000000') })
+      const r = walletBalance(engineConfig.networks, CHAIN_ID_0, { value: ethers.parseEther('1000000'), compareType: 'gte' })
       const result = await r.rule(signer0Addr)
       expect(result.success).to.eq(false)
       expect(result.error).to.eq(undefined)
     })
   })
 
-  describe('contractBalanceAtLeast Rule', function () {
+  describe('contractBalance Rule', function () {
     it('should pass if contract balance is >= required Wei', async function () {
-      const r = contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther('1') })
+      const r = contractBalance(engineConfig.networks, CHAIN_ID_0, { contractAddress, value: ethers.parseEther('1'), compareType: 'gte' })
       const result = await r.rule()
       expect(result.success).to.eq(true)
     })
 
     it('should fail if the contract has less than the required Wei', async function () {
-      const r = contractBalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { contractAddress, minWei: ethers.parseEther('2') })
+      const r = contractBalance(engineConfig.networks, CHAIN_ID_0, { contractAddress, value: ethers.parseEther('2'), compareType: 'gte' })
       const result = await r.rule()
       expect(result.success).to.eq(false)
     })
   })
 
-  describe('numTransactionsAtLeast Rule', function () {
+  describe('numTransactions Rule', function () {
     it("should pass based on the user's transaction count", async function () {
       await signer1.sendTransaction({
         to: signer0Addr,
         value: ethers.parseEther('0.001')
       })
 
-      const r = numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, { minCount: 1n })
+      const r = numTransactions(engineConfig.networks, CHAIN_ID_0, { value: 1n, compareType: 'gte' })
       const result = await r.rule(signer1Addr)
       expect(result.success).to.eq(true)
     })
 
     it("should fail based on the user's transaction count", async function () {
-      const r = numTransactionsAtLeast(engineConfig.networks, CHAIN_ID_0, { minCount: 1n })
+      const r = numTransactions(engineConfig.networks, CHAIN_ID_0, { value: 1n, compareType: 'gte' })
       const result = await r.rule(signer2Addr)
       expect(result.success).to.eq(false)
     })
@@ -130,8 +141,7 @@ describe('Single Rules', function () {
 
     it('should pass if user has the NFT', async function () {
       // Mint an NFT to signer1
-      await (nftContractUntyped).mint(signer1)
-
+      await nftContractUntyped.mint(signer1)
       const r = hasNFT(engineConfig.networks, CHAIN_ID_0, { nftAddress })
       const result = await r.rule(signer1Addr)
       expect(result.success).to.eq(true)
@@ -158,9 +168,8 @@ describe('Single Rules', function () {
     })
 
     it('should pass if user has the NFT token id', async function () {
-      // Mint an NFT to user1
-      await (nftContractUntyped).mint(signer1)
-
+      // Mint an NFT to signer1
+      await nftContractUntyped.mint(signer1)
       const r = hasNFTTokenId(engineConfig.networks, CHAIN_ID_0, { nftAddress, tokenId })
       const result = await r.rule(signer1Addr)
       expect(result.success).to.eq(true)
@@ -201,7 +210,7 @@ describe('Single Rules', function () {
     })
   })
 
-  describe('erc20BalanceAtLeast Rule', function () {
+  describe('erc20Balance Rule', function () {
     let erc20Address: string
     let erc20Contract: any
 
@@ -222,28 +231,35 @@ describe('Single Rules', function () {
 
     it('should pass if user has the required token balance', async function () {
       // signer1 has 100 tokens
-      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { tokenAddress: erc20Address, minTokens: 50n * 100000000000000000n })
+      const ruleInstance = erc20Balance(engineConfig.networks, CHAIN_ID_0, {
+        tokenAddress: erc20Address,
+        value: 50n * 100000000000000000n,
+        compareType: 'gte'
+      })
       const result = await ruleInstance.rule(signer1Addr)
-
       expect(result.success).to.eq(true)
     })
 
     it('should fail if user does not have the required token balance', async function () {
       // signer1 has 100 tokens, threshold is 101
-      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { tokenAddress: erc20Address, minTokens: 101n * 100000000000000000n })
+      const ruleInstance = erc20Balance(engineConfig.networks, CHAIN_ID_0, {
+        tokenAddress: erc20Address,
+        value: 101n * 100000000000000000n,
+        compareType: 'gte'
+      })
       const result = await ruleInstance.rule(signer1Addr)
-
       expect(result.success).to.eq(false)
-      // If you want, you can also check that `result.error` is undefined (because
-      // the call succeeded, just didn't meet the threshold)
       expect(result.error).to.eq(undefined)
     })
 
     it('should pass exactly at the threshold', async function () {
       // signer1 has exactly 100 tokens, threshold is 100
-      const ruleInstance = erc20BalanceAtLeast(engineConfig.networks, CHAIN_ID_0, { tokenAddress: erc20Address, minTokens: 100n * 100000000000000000n })
+      const ruleInstance = erc20Balance(engineConfig.networks, CHAIN_ID_0, {
+        tokenAddress: erc20Address,
+        value: 100n * 100000000000000000n,
+        compareType: 'eq'
+      })
       const result = await ruleInstance.rule(signer1Addr)
-
       expect(result.success).to.eq(true)
     })
   })
@@ -259,9 +275,9 @@ describe('Single Rules', function () {
 
     before(async function () {
       // Set up signers (owner and another address)
-      signer0 = await (provider as JsonRpcProvider).getSigner(0) // account #0
-      signer1 = await (provider as JsonRpcProvider).getSigner(1) // account #1
-      signer2 = await (provider as JsonRpcProvider).getSigner(2) // account #1
+      signer0 = await (provider as JsonRpcProvider).getSigner(0)
+      signer1 = await (provider as JsonRpcProvider).getSigner(1)
+      signer2 = await (provider as JsonRpcProvider).getSigner(2)
       signer1Addr = await signer1.getAddress()
       signer2Addr = await signer2.getAddress()
 
@@ -291,7 +307,6 @@ describe('Single Rules', function () {
 
       const r = callContract(engineConfig.networks, CHAIN_ID_0, params)
       const result = await r.rule(signer1Addr)
-
       expect(result.success).to.eq(true)
     })
 
@@ -301,13 +316,12 @@ describe('Single Rules', function () {
         contractAddress: whitelistAddress,
         functionName: 'isWhitelisted',
         abi: whitelistArtifact.abi,
-        requiredResult: true, // We want to test for failure, so true
+        requiredResult: true,
         compareType: 'eq'
       }
 
       const r = callContract(engineConfig.networks, CHAIN_ID_0, params)
       const result = await r.rule(signer2Addr)
-
       expect(result.success).to.eq(false)
     })
 
@@ -316,13 +330,12 @@ describe('Single Rules', function () {
         contractAddress: whitelistAddress,
         functionName: 'isWhitelisted',
         abi: whitelistArtifact.abi,
-        requiredResult: false, // We expect the function call to return false
+        requiredResult: false,
         compareType: 'eq'
       }
 
       const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
       const result = await ruleInstance.rule(signer2Addr)
-
       expect(result.success).to.eq(true)
     })
   })
@@ -335,11 +348,9 @@ describe('Single Rules', function () {
       const factory = new ethers.ContractFactory(testArtifact.abi, testArtifact.bytecode.object, signer0)
       testContract = await factory.deploy()
       await testContract.waitForDeployment()
-
       testContractAddress = await testContract.getAddress()
     })
 
-    // Now we add our tests below...
     describe('Boolean returns', function () {
       it('should pass when returnTrue == true (compare eq)', async function () {
         const params: callContractParams = {
@@ -349,12 +360,8 @@ describe('Single Rules', function () {
           requiredResult: true,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-        // 'rule()' calls the contract function with no args;
-        // if your function needed arguments, you'd pass them in: rule(arg1, arg2, ...)
-
         expect(result.success).to.eq(true)
       })
 
@@ -366,11 +373,9 @@ describe('Single Rules', function () {
           requiredResult: false,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(false) // Because the contract returns true, not false
+        expect(result.success).to.eq(false)
       })
 
       it('should pass when returnFalse == false (compare eq)', async function () {
@@ -381,10 +386,8 @@ describe('Single Rules', function () {
           requiredResult: false,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(true)
       })
 
@@ -396,10 +399,8 @@ describe('Single Rules', function () {
           requiredResult: true,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(false)
       })
     })
@@ -413,11 +414,9 @@ describe('Single Rules', function () {
           requiredResult: 'TEST',
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(true) // The contract returns "TEST"
+        expect(result.success).to.eq(true)
       })
 
       it("should fail when returnString != 'WRONG' (compare eq)", async function () {
@@ -428,11 +427,9 @@ describe('Single Rules', function () {
           requiredResult: 'WRONG',
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(false) // Because the contract actually returns "TEST"
+        expect(result.success).to.eq(false)
       })
     })
 
@@ -442,13 +439,11 @@ describe('Single Rules', function () {
           contractAddress: testContractAddress,
           functionName: 'returnUint',
           abi: testArtifact.abi,
-          requiredResult: 100, // or "100", as it will get converted to BigInt
+          requiredResult: 100,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(true)
       })
 
@@ -460,10 +455,8 @@ describe('Single Rules', function () {
           requiredResult: 101,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(false)
       })
 
@@ -472,13 +465,11 @@ describe('Single Rules', function () {
           contractAddress: testContractAddress,
           functionName: 'returnUint',
           abi: testArtifact.abi,
-          requiredResult: 100, // or "100", as it will get converted to BigInt
+          requiredResult: 100,
           compareType: 'gte'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(true)
       })
 
@@ -487,13 +478,11 @@ describe('Single Rules', function () {
           contractAddress: testContractAddress,
           functionName: 'returnUint',
           abi: testArtifact.abi,
-          requiredResult: 101, // or "100", as it will get converted to BigInt
+          requiredResult: 101,
           compareType: 'gte'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(false)
       })
 
@@ -505,11 +494,9 @@ describe('Single Rules', function () {
           requiredResult: 50,
           compareType: 'gt'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(true) // 100 > 50
+        expect(result.success).to.eq(true)
       })
 
       it('should fail when returnUint > 101 (compare gt)', async function () {
@@ -520,11 +507,9 @@ describe('Single Rules', function () {
           requiredResult: 101,
           compareType: 'gt'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(false) // 100 is not > 101
+        expect(result.success).to.eq(false)
       })
 
       it('should pass when returnUint < 101 (compare lt)', async function () {
@@ -535,11 +520,9 @@ describe('Single Rules', function () {
           requiredResult: 101,
           compareType: 'lt'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(true) // < 101
+        expect(result.success).to.eq(true)
       })
 
       it('should pass when returnUint <= 100 (compare lte)', async function () {
@@ -550,11 +533,9 @@ describe('Single Rules', function () {
           requiredResult: 100,
           compareType: 'lte'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(true) // 100 <= 100
+        expect(result.success).to.eq(true)
       })
 
       it('should fail when returnUint <= 99 (compare lte)', async function () {
@@ -565,11 +546,9 @@ describe('Single Rules', function () {
           requiredResult: 99,
           compareType: 'lte'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(false) // 100 <= 99
+        expect(result.success).to.eq(false)
       })
     })
 
@@ -582,11 +561,9 @@ describe('Single Rules', function () {
           requiredResult: 100,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(true) // matches 100
+        expect(result.success).to.eq(true)
       })
 
       it('should fail when returnPositiveInt == 101 (compare eq)', async function () {
@@ -597,11 +574,9 @@ describe('Single Rules', function () {
           requiredResult: 101,
           compareType: 'eq'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(false) // does not match 101
+        expect(result.success).to.eq(false)
       })
 
       it('should pass when returnPositiveInt > 99 (compare gt)', async function () {
@@ -612,11 +587,9 @@ describe('Single Rules', function () {
           requiredResult: 99,
           compareType: 'gt'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(true) // matches 100
+        expect(result.success).to.eq(true)
       })
 
       it('should fail when returnPositiveInt > 100 (compare gt)', async function () {
@@ -627,11 +600,9 @@ describe('Single Rules', function () {
           requiredResult: 100,
           compareType: 'gt'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(false) // matches 100
+        expect(result.success).to.eq(false)
       })
 
       it('should pass when returnPositiveInt >= 100 (compare gte)', async function () {
@@ -642,11 +613,9 @@ describe('Single Rules', function () {
           requiredResult: 100,
           compareType: 'gte'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
-        expect(result.success).to.eq(true) // matches 100
+        expect(result.success).to.eq(true)
       })
 
       it('should pass when returnNegativeInt < 0 (compare lt)', async function () {
@@ -657,14 +626,12 @@ describe('Single Rules', function () {
           requiredResult: 0,
           compareType: 'lt'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(true)
       })
 
-      it('should pass when returnNegativeInt <= 100 (compare lte)', async function () {
+      it('should pass when returnNegativeInt <= -100 (compare lte)', async function () {
         const params: callContractParams = {
           contractAddress: testContractAddress,
           functionName: 'returnNegativeInt',
@@ -672,10 +639,8 @@ describe('Single Rules', function () {
           requiredResult: -100,
           compareType: 'lte'
         }
-
         const ruleInstance = callContract(engineConfig.networks, CHAIN_ID_0, params)
         const result = await ruleInstance.rule()
-
         expect(result.success).to.eq(true)
       })
     })
@@ -695,12 +660,12 @@ describe('createRulesFromJson()', function () {
     const tokenId = '123'
 
     const definitions: RuleDefinition[] = [
-      { type: 'walletBalanceAtLeast', chainId: CHAIN_ID_0, params: { minWei: min } },
-      { type: 'contractBalanceAtLeast', chainId: CHAIN_ID_0, params: { minWei: min, contractAddress: address } },
-      { type: 'erc20BalanceAtLeast', chainId: CHAIN_ID_0, params: { tokenAddress: address, minTokens: min } },
+      { type: 'walletBalance', chainId: CHAIN_ID_0, params: { value: min, compareType: 'gte' } },
+      { type: 'contractBalance', chainId: CHAIN_ID_0, params: { value: min, compareType: 'gte', contractAddress: address } },
+      { type: 'erc20Balance', chainId: CHAIN_ID_0, params: { value: min, compareType: 'gte', tokenAddress: address } },
       { type: 'hasNFT', chainId: CHAIN_ID_0, params: { nftAddress: address } },
       { type: 'hasNFTTokenId', chainId: CHAIN_ID_0, params: { nftAddress: address, tokenId } },
-      { type: 'numTransactionsAtLeast', chainId: CHAIN_ID_0, params: { minCount: min } },
+      { type: 'numTransactions', chainId: CHAIN_ID_0, params: { value: min, compareType: 'gte' } },
       { type: 'addressIsContract', chainId: CHAIN_ID_0, params: {} },
       { type: 'addressIsEOA', chainId: CHAIN_ID_0, params: {} },
       { type: 'callContract', chainId: CHAIN_ID_0, params: { contractAddress: address, functionName: 'test', abi: ['test'] } }
@@ -712,21 +677,24 @@ describe('createRulesFromJson()', function () {
     expect(typeof rules[0].rule).to.eq('function')
     expect(typeof rules[0].definition).to.eq('object')
     expect(rules[0].definition.chainId).to.eq(CHAIN_ID_0)
-    expect(rules[0].definition.type).to.eq('walletBalanceAtLeast')
-    expect(rules[0].definition.params.minWei).to.eq(min)
+    expect(rules[0].definition.type).to.eq('walletBalance')
+    expect(rules[0].definition.params.value).to.eq(min)
+    expect(rules[0].definition.params.compareType).to.eq('gte')
 
     expect(typeof rules[1].rule).to.eq('function')
     expect(typeof rules[1].definition).to.eq('object')
     expect(rules[1].definition.chainId).to.eq(CHAIN_ID_0)
-    expect(rules[1].definition.type).to.eq('contractBalanceAtLeast')
-    expect(rules[1].definition.params.minWei).to.eq(min)
+    expect(rules[1].definition.type).to.eq('contractBalance')
+    expect(rules[1].definition.params.value).to.eq(min)
+    expect(rules[1].definition.params.compareType).to.eq('gte')
     expect(rules[1].definition.params.contractAddress).to.eq(address)
 
     expect(typeof rules[2].rule).to.eq('function')
     expect(typeof rules[2].definition).to.eq('object')
     expect(rules[2].definition.chainId).to.eq(CHAIN_ID_0)
-    expect(rules[2].definition.type).to.eq('erc20BalanceAtLeast')
-    expect(rules[2].definition.params.minTokens).to.eq(min)
+    expect(rules[2].definition.type).to.eq('erc20Balance')
+    expect(rules[2].definition.params.value).to.eq(min)
+    expect(rules[2].definition.params.compareType).to.eq('gte')
     expect(rules[2].definition.params.tokenAddress).to.eq(address)
 
     expect(typeof rules[3].rule).to.eq('function')
@@ -745,8 +713,9 @@ describe('createRulesFromJson()', function () {
     expect(typeof rules[5].rule).to.eq('function')
     expect(typeof rules[5].definition).to.eq('object')
     expect(rules[5].definition.chainId).to.eq(CHAIN_ID_0)
-    expect(rules[5].definition.type).to.eq('numTransactionsAtLeast')
-    expect(rules[5].definition.params.minCount).to.eq(min)
+    expect(rules[5].definition.type).to.eq('numTransactions')
+    expect(rules[5].definition.params.value).to.eq(min)
+    expect(rules[5].definition.params.compareType).to.eq('gte')
 
     expect(typeof rules[6].rule).to.eq('function')
     expect(typeof rules[6].definition).to.eq('object')

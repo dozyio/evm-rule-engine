@@ -3,17 +3,17 @@ import { type RuleResult, type BuiltRule, type Network, type RuleDefinition } fr
 import { getProviderByChainId } from './utils.js'
 
 const ruleFactories: Record<string, (...args: any[]) => BuiltRule> = {
-  walletBalanceAtLeast: (networks: Network[], chainId: string, params: walletBalanceAtLeastParams) =>
-    walletBalanceAtLeast(networks, chainId, params),
+  walletBalance: (networks: Network[], chainId: string, params: walletBalanceParams) =>
+    walletBalance(networks, chainId, params),
 
-  contractBalanceAtLeast: (networks: Network[], chainId: string, params: contractBalanceAtLeastParams) =>
-    contractBalanceAtLeast(networks, chainId, params),
+  contractBalance: (networks: Network[], chainId: string, params: contractBalanceParams) =>
+    contractBalance(networks, chainId, params),
 
-  erc20BalanceAtLeast: (networks: Network[], chainId: string, params: erc20BalanceAtLeastParams) =>
-    erc20BalanceAtLeast(networks, chainId, params),
+  erc20Balance: (networks: Network[], chainId: string, params: erc20BalanceParams) =>
+    erc20Balance(networks, chainId, params),
 
-  numTransactionsAtLeast: (networks: Network[], chainId: string, params: numTransactionsAtLeastParams) =>
-    numTransactionsAtLeast(networks, chainId, params),
+  numTransactions: (networks: Network[], chainId: string, params: numTransactionsParams) =>
+    numTransactions(networks, chainId, params),
 
   hasNFT: (networks: Network[], chainId: string, params: hasNFTParams) =>
     hasNFT(networks, chainId, params),
@@ -59,12 +59,12 @@ export function createRulesFromDefinitions (networks: Network[], definitions: Ru
 
     // For each known type, call the factory with params
     switch (type) {
-      case 'walletBalanceAtLeast':
-      case 'contractBalanceAtLeast':
-      case 'erc20BalanceAtLeast':
+      case 'walletBalance':
+      case 'contractBalance':
+      case 'erc20Balance':
+      case 'numTransactions':
       case 'hasNFT':
       case 'hasNFTTokenId':
-      case 'numTransactionsAtLeast':
       case 'addressIsContract':
       case 'addressIsEOA':
       case 'callContract':
@@ -78,21 +78,24 @@ export function createRulesFromDefinitions (networks: Network[], definitions: Ru
   return createdRules
 }
 
-export interface walletBalanceAtLeastParams {
-  minWei: bigint
+export interface walletBalanceParams {
+  value: bigint
+  compareType: 'eq' | 'gt' | 'gte' | 'lt' | 'lte'
 }
 
 /**
- * Checks if an wallet balance is >= `minWei`.
+ * Checks if a wallet's balance satisfies the condition defined by compareType and value.
  */
-export function walletBalanceAtLeast (networks: Network[], chainId: string, params: walletBalanceAtLeastParams): BuiltRule {
-  if (params.minWei === undefined || params.minWei === null) {
-    throw new Error('`minWei` is required')
+export function walletBalance (networks: Network[], chainId: string, params: walletBalanceParams): BuiltRule {
+  if (params.value === undefined || params.value === null) {
+    throw new Error('`value` is required')
+  }
+  if (!['eq', 'gt', 'gte', 'lt', 'lte'].includes(params.compareType)) {
+    throw new Error('`compareType` is required and must be one of eq, gt, gte, lt, lte')
   }
 
   const rule = async (address?: string): Promise<RuleResult> => {
-    const ruleName = `Wallet balance >= ${params.minWei}`
-
+    const ruleName = `Wallet balance ${params.compareType} ${params.value}`
     if (address === undefined || address === null || address === '') {
       throw new Error('`address` is required')
     }
@@ -102,9 +105,30 @@ export function walletBalanceAtLeast (networks: Network[], chainId: string, para
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
       const balance = await provider.getBalance(address)
-      const success = balance >= params.minWei
+      const balanceBig = BigInt(balance.toString())
+      let success = false
+
+      switch (params.compareType) {
+        case 'eq':
+          success = balanceBig === params.value
+          break
+        case 'gt':
+          success = balanceBig > params.value
+          break
+        case 'gte':
+          success = balanceBig >= params.value
+          break
+        case 'lt':
+          success = balanceBig < params.value
+          break
+        case 'lte':
+          success = balanceBig <= params.value
+          break
+        default:
+          throw new Error(`Unsupported compareType: ${params.compareType}`)
+      }
+
       return { name: ruleName, success }
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message }
@@ -114,43 +138,67 @@ export function walletBalanceAtLeast (networks: Network[], chainId: string, para
   return {
     rule,
     definition: {
-      type: 'walletBalanceAtLeast',
+      type: 'walletBalance',
       params: {
-        minWei: params.minWei.toString()
+        value: params.value.toString(),
+        compareType: params.compareType
       },
       chainId
     }
   }
 }
 
-export interface contractBalanceAtLeastParams {
+export interface contractBalanceParams {
   contractAddress: string
-  minWei: bigint
+  value: bigint
+  compareType: 'eq' | 'gt' | 'gte' | 'lt' | 'lte'
 }
 
 /**
- * Checks if a specific contract's balance is >= `minWei`.
+ * Checks if a specific contract's balance satisfies the condition defined by compareType and value.
  */
-export function contractBalanceAtLeast (networks: Network[], chainId: string, params: contractBalanceAtLeastParams): BuiltRule {
+export function contractBalance (networks: Network[], chainId: string, params: contractBalanceParams): BuiltRule {
   if (params.contractAddress === undefined || params.contractAddress === null) {
     throw new Error('`contractAddress` is required')
   }
-
-  if (params.minWei === undefined || params.minWei === null) {
-    throw new Error('`minWei` is required')
+  if (params.value === undefined || params.value === null) {
+    throw new Error('`value` is required')
+  }
+  if (!['eq', 'gt', 'gte', 'lt', 'lte'].includes(params.compareType)) {
+    throw new Error('`compareType` is required and must be one of eq, gt, gte, lt, lte')
   }
 
   const rule = async (): Promise<RuleResult> => {
-    const ruleName = `Contract balance >= ${params.minWei} at ${params.contractAddress}`
-
+    const ruleName = `Contract balance ${params.compareType} ${params.value} at ${params.contractAddress}`
     try {
       const provider = getProviderByChainId(networks, chainId)
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
       const balance = await provider.getBalance(params.contractAddress)
-      const success = balance >= params.minWei
+      const balanceBig = BigInt(balance.toString())
+      let success = false
+
+      switch (params.compareType) {
+        case 'eq':
+          success = balanceBig === params.value
+          break
+        case 'gt':
+          success = balanceBig > params.value
+          break
+        case 'gte':
+          success = balanceBig >= params.value
+          break
+        case 'lt':
+          success = balanceBig < params.value
+          break
+        case 'lte':
+          success = balanceBig <= params.value
+          break
+        default:
+          throw new Error(`Unsupported compareType: ${params.compareType}`)
+      }
+
       return { name: ruleName, success }
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message }
@@ -160,54 +208,72 @@ export function contractBalanceAtLeast (networks: Network[], chainId: string, pa
   return {
     rule,
     definition: {
-      type: 'contractBalanceAtLeast',
+      type: 'contractBalance',
       params: {
         contractAddress: params.contractAddress,
-        minWei: params.minWei.toString()
+        value: params.value.toString(),
+        compareType: params.compareType
       },
       chainId
     }
   }
 }
 
-export interface erc20BalanceAtLeastParams {
+export interface erc20BalanceParams {
   tokenAddress: string
-  minTokens: bigint
+  value: bigint
+  compareType: 'eq' | 'gt' | 'gte' | 'lt' | 'lte'
 }
 
 /**
- * Checks if `address` holds at least `minTokens` of ERC-20 `tokenAddress`.
+ * Checks if `address` holds an ERC-20 balance that satisfies the condition defined by compareType and value.
  */
-export function erc20BalanceAtLeast (networks: Network[], chainId: string, params: erc20BalanceAtLeastParams): BuiltRule {
+export function erc20Balance (networks: Network[], chainId: string, params: erc20BalanceParams): BuiltRule {
   if (params.tokenAddress === undefined || params.tokenAddress === null) {
     throw new Error('`tokenAddress` is required')
   }
-
-  if (params.minTokens === undefined || params.minTokens === null) {
-    throw new Error('`minTokens` is required')
+  if (params.value === undefined || params.value === null) {
+    throw new Error('`value` is required')
+  }
+  if (!['eq', 'gt', 'gte', 'lt', 'lte'].includes(params.compareType)) {
+    throw new Error('`compareType` is required and must be one of eq, gt, gte, lt, lte')
   }
 
   const rule = async (address?: string): Promise<RuleResult> => {
-    const ruleName = `ERC20 balance >= ${params.minTokens} (token: ${params.tokenAddress})`
-
+    const ruleName = `ERC20 balance ${params.compareType} ${params.value} (token: ${params.tokenAddress})`
     if (address === undefined || address === null || address === '') {
       throw new Error('`address` is required')
     }
-
     try {
       const provider = getProviderByChainId(networks, chainId)
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
-      // Minimal ERC-20 ABI with balanceOf
       const abi = ['function balanceOf(address) view returns (uint256)']
       const contract = new ethers.Contract(params.tokenAddress, abi, provider)
       const balance = await contract.balanceOf(address)
-
-      // Compare as BigInt
       const balanceBig = BigInt(balance.toString())
-      const success = balanceBig >= params.minTokens
+      let success = false
+
+      switch (params.compareType) {
+        case 'eq':
+          success = balanceBig === params.value
+          break
+        case 'gt':
+          success = balanceBig > params.value
+          break
+        case 'gte':
+          success = balanceBig >= params.value
+          break
+        case 'lt':
+          success = balanceBig < params.value
+          break
+        case 'lte':
+          success = balanceBig <= params.value
+          break
+        default:
+          throw new Error(`Unsupported compareType: ${params.compareType}`)
+      }
 
       return { name: ruleName, success }
     } catch (err: any) {
@@ -218,10 +284,80 @@ export function erc20BalanceAtLeast (networks: Network[], chainId: string, param
   return {
     rule,
     definition: {
-      type: 'erc20BalanceAtLeast',
+      type: 'erc20Balance',
       params: {
         tokenAddress: params.tokenAddress,
-        minTokens: params.minTokens.toString()
+        value: params.value.toString(),
+        compareType: params.compareType
+      },
+      chainId
+    }
+  }
+}
+
+export interface numTransactionsParams {
+  value: bigint
+  compareType: 'eq' | 'gt' | 'gte' | 'lt' | 'lte'
+}
+
+/**
+ * Checks if the number of transactions (nonce) satisfies the condition defined by compareType and value.
+ */
+export function numTransactions (networks: Network[], chainId: string, params: numTransactionsParams): BuiltRule {
+  if (params.value === undefined || params.value === null) {
+    throw new Error('`value` is required')
+  }
+  if (!['eq', 'gt', 'gte', 'lt', 'lte'].includes(params.compareType)) {
+    throw new Error('`compareType` is required and must be one of eq, gt, gte, lt, lte')
+  }
+
+  const rule = async (address?: string): Promise<RuleResult> => {
+    const ruleName = `Number of transactions ${params.compareType} ${params.value}`
+    if (address === undefined || address === null || address === '') {
+      throw new Error('`address` is required')
+    }
+    try {
+      const provider = getProviderByChainId(networks, chainId)
+      if (provider === undefined) {
+        throw new Error(`No provider found for chainId: ${chainId}`)
+      }
+      const txCount = await provider.getTransactionCount(address)
+      const txCountBig = BigInt(txCount)
+      let success = false
+
+      switch (params.compareType) {
+        case 'eq':
+          success = txCountBig === params.value
+          break
+        case 'gt':
+          success = txCountBig > params.value
+          break
+        case 'gte':
+          success = txCountBig >= params.value
+          break
+        case 'lt':
+          success = txCountBig < params.value
+          break
+        case 'lte':
+          success = txCountBig <= params.value
+          break
+        default:
+          throw new Error(`Unsupported compareType: ${params.compareType}`)
+      }
+
+      return { name: ruleName, success }
+    } catch (err: any) {
+      return { name: ruleName, success: false, error: err.message }
+    }
+  }
+
+  return {
+    rule,
+    definition: {
+      type: 'numTransactions',
+      params: {
+        value: params.value.toString(),
+        compareType: params.compareType
       },
       chainId
     }
@@ -239,41 +375,31 @@ export function hasNFT (networks: Network[], chainId: string, params: hasNFTPara
   if (params.nftAddress === undefined || params.nftAddress === null) {
     throw new Error('`nftAddress` is required')
   }
-
   const rule = async (address?: string): Promise<RuleResult> => {
     const ruleName = `Address has at least 1 NFT from ${params.nftAddress}`
-
     if (address === undefined || address === null || address === '') {
       throw new Error('`address` is required')
     }
-
     try {
       const provider = getProviderByChainId(networks, chainId)
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
-      // Minimal ERC-721 ABI with balanceOf
       const abi = ['function balanceOf(address owner) view returns (uint256)']
       const contract = new ethers.Contract(params.nftAddress, abi, provider)
       const balance = await contract.balanceOf(address)
-
       const balanceBig = BigInt(balance.toString())
       const success = balanceBig >= 1n
-
       return { name: ruleName, success }
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message }
     }
   }
-
   return {
     rule,
     definition: {
       type: 'hasNFT',
-      params: {
-        nftAddress: params.nftAddress
-      },
+      params: { nftAddress: params.nftAddress },
       chainId
     }
   }
@@ -283,6 +409,7 @@ export interface hasNFTTokenIdParams {
   nftAddress: string
   tokenId: bigint
 }
+
 /**
  * Checks if `address` has an ERC721 (tokenId) at `nftAddress`.
  */
@@ -290,29 +417,20 @@ export function hasNFTTokenId (networks: Network[], chainId: string, params: has
   if (params.nftAddress === undefined || params.nftAddress === null) {
     throw new Error('`nftAddress` is required')
   }
-
   if (params.tokenId === undefined || params.tokenId === null) {
     throw new Error('`tokenId` is required')
   }
-
   const rule = async (address?: string): Promise<RuleResult> => {
     const ruleName = `Address has NFT ${params.nftAddress} #${params.tokenId}`
-
     if (address === undefined || address === null || address === '') {
       throw new Error('`address` is required')
     }
-
     try {
       const provider = getProviderByChainId(networks, chainId)
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
-      // Minimal ERC721 ABI with just "ownerOf"
-      const abi = [
-        'function ownerOf(uint256 tokenId) external view returns (address)'
-      ]
-
+      const abi = ['function ownerOf(uint256 tokenId) external view returns (address)']
       const nftContract = new ethers.Contract(params.nftAddress, abi, provider)
       const actualOwner = await nftContract.ownerOf(params.tokenId)
       const success = actualOwner.toLowerCase() === address.toLowerCase()
@@ -321,68 +439,18 @@ export function hasNFTTokenId (networks: Network[], chainId: string, params: has
       return { name: ruleName, success: false, error: err.message }
     }
   }
-
   return {
     rule,
     definition: {
       type: 'hasNFTTokenId',
-      params: {
-        nftAddress: params.nftAddress,
-        tokenId: params.tokenId.toString()
-      },
-      chainId
-    }
-  }
-}
-
-export interface numTransactionsAtLeastParams {
-  minCount: bigint
-}
-
-/**
- * Checks if the user has sent at least `minCount` transactions (nonce >= minCount).
- */
-export function numTransactionsAtLeast (networks: Network[], chainId: string, params: numTransactionsAtLeastParams): BuiltRule {
-  if (params.minCount === undefined || params.minCount === null) {
-    throw new Error('`minCount` is required')
-  }
-
-  const rule = async (address?: string): Promise<RuleResult> => {
-    const ruleName = `Number of transactions >= ${params.minCount}`
-
-    if (address === undefined || address === null || address === '') {
-      throw new Error('`address` is required')
-    }
-
-    try {
-      const provider = getProviderByChainId(networks, chainId)
-      if (provider === undefined) {
-        throw new Error(`No provider found for chainId: ${chainId}`)
-      }
-
-      const txCount = await provider.getTransactionCount(address)
-      const txCountBig = BigInt(txCount)
-      const success = txCountBig >= params.minCount
-      return { name: ruleName, success }
-    } catch (err: any) {
-      return { name: ruleName, success: false, error: err.message }
-    }
-  }
-
-  return {
-    rule,
-    definition: {
-      type: 'numTransactionsAtLeast',
-      params: {
-        minCount: params.minCount.toString()
-      },
+      params: { nftAddress: params.nftAddress, tokenId: params.tokenId.toString() },
       chainId
     }
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface addressIsContractParams { }
+export interface addressIsContractParams {}
 
 /**
  * Checks if the address is a contract.
@@ -390,26 +458,21 @@ export interface addressIsContractParams { }
 export function addressIsContract (networks: Network[], chainId: string, params: addressIsContractParams): BuiltRule {
   const rule = async (address?: string): Promise<RuleResult> => {
     const ruleName = `Address is contract: ${address}`
-
     if (address === undefined || address === null || address === '') {
       throw new Error('`address` is required')
     }
-
     try {
       const provider = getProviderByChainId(networks, chainId)
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
       const code = await provider.getCode(address)
-      // If code != "0x", then it's a contract.
       const success = code !== '0x'
       return { name: ruleName, success }
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message }
     }
   }
-
   return {
     rule,
     definition: {
@@ -421,33 +484,29 @@ export function addressIsContract (networks: Network[], chainId: string, params:
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface addressIsEOAParams { }
+export interface addressIsEOAParams {}
+
 /**
  * Checks if the address is EOA.
  */
 export function addressIsEOA (networks: Network[], chainId: string, params: addressIsEOAParams): BuiltRule {
   const rule = async (address?: string): Promise<RuleResult> => {
     const ruleName = `Address is EOA: ${address}`
-
     if (address === undefined || address === null || address === '') {
       throw new Error('`address` is required')
     }
-
     try {
       const provider = getProviderByChainId(networks, chainId)
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
       const code = await provider.getCode(address)
-      // If code === "0x", then it's a EOA.
       const success = code === '0x'
       return { name: ruleName, success }
     } catch (err: any) {
       return { name: ruleName, success: false, error: err.message }
     }
   }
-
   return {
     rule,
     definition: {
@@ -470,63 +529,44 @@ export function callContract (networks: Network[], chainId: string, params: call
   if (params.contractAddress === undefined || params.contractAddress === null) {
     throw new Error('`contractAddress` is required')
   }
-
   if (params.functionName === undefined || params.functionName === null) {
     throw new Error('`functionName` is required')
   }
-
   if (params.abi === undefined || params.abi === null || params.abi.length === 0) {
     throw new Error('`abi` is required')
   }
 
   const rule = async (...ruleParams: any[]): Promise<RuleResult> => {
     const ruleName = `callContract ${params.contractAddress} ${params.functionName}`
-
     try {
       const provider = getProviderByChainId(networks, chainId)
       if (provider === undefined) {
         throw new Error(`No provider found for chainId: ${chainId}`)
       }
-
       const contract = new ethers.Contract(params.contractAddress, params.abi, provider)
-
       const rawResult = await contract[params.functionName](...ruleParams)
-
       let success = false
 
       if (typeof rawResult === 'boolean') {
         if (typeof params.requiredResult !== 'boolean') {
-          throw new Error(
-            'Contract returned boolean but \'requiredResult\' is not boolean.'
-          )
+          throw new Error('Contract returned boolean but \'requiredResult\' is not boolean.')
         }
-
         if (params.compareType !== 'eq') {
-          throw new Error(
-            `compareType '${params.compareType}' not supported for boolean comparison.`
-          )
+          throw new Error(`compareType '${params.compareType}' not supported for boolean comparison.`)
         }
-
         success = (rawResult === params.requiredResult)
       } else if (typeof rawResult === 'string') {
         if (typeof params.requiredResult !== 'string') {
-          throw new Error(
-            'Contract returned string but \'requiredResult\' is not string.'
-          )
+          throw new Error('Contract returned string but \'requiredResult\' is not string.')
         }
-
         if (params.compareType === 'eq') {
           success = (rawResult === params.requiredResult)
         } else {
-          throw new Error(
-            `compareType '${params.compareType}' not supported for string comparison.`
-          )
+          throw new Error(`compareType '${params.compareType}' not supported for string comparison.`)
         }
       } else if (typeof rawResult === 'bigint' || typeof rawResult === 'number') {
         const resultAsBigInt: bigint = typeof rawResult === 'bigint' ? rawResult : BigInt(rawResult)
-
         const requiredAsBigInt: bigint = BigInt(params.requiredResult)
-
         switch (params.compareType) {
           case 'eq':
             success = (resultAsBigInt === requiredAsBigInt)
@@ -547,9 +587,7 @@ export function callContract (networks: Network[], chainId: string, params: call
             throw new Error(`Unsupported compareType: ${params.compareType}`)
         }
       } else {
-        throw new Error(
-          `Unsupported return type from contract function: ${typeof rawResult}`
-        )
+        throw new Error(`Unsupported return type from contract function: ${typeof rawResult}`)
       }
       return { name: ruleName, success }
     } catch (err: any) {
