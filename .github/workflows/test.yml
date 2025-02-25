@@ -1,4 +1,4 @@
-name: CI
+name: Test
 
 on:
   push:
@@ -10,9 +10,6 @@ env:
 
 jobs:
   check:
-    strategy:
-      fail-fast: true
-
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
@@ -30,14 +27,25 @@ jobs:
       - name: Run Forge fmt
         run: |
           forge fmt --check
-        id: fmt
 
-      - name: Run Forge build
-        run: |
-          forge build --sizes
-        id: build
+      - name: Install npm deps
+        run: npm install
 
-      - name: Run Forge tests
+      - name: Start anvil instances, run tests, and clean up
         run: |
-          forge test -vvv
-        id: test
+          # Start anvil on port 8545 with chain-id 31337 in the background
+          anvil --port 8545 --chain-id 31337 > anvil8545.log 2>&1 &
+          ANVIL_8545_PID=$!
+
+          # Start anvil on port 8546 with chain-id 31338 in the background
+          anvil --port 8546 --chain-id 31338 > anvil8546.log 2>&1 &
+          ANVIL_8546_PID=$!
+
+          # Ensure that both anvil processes are killed when the script exits
+          trap "kill $ANVIL_8545_PID $ANVIL_8546_PID" EXIT
+
+          # Give the anvil instances time to start up
+          sleep 5
+
+          # Run your tests
+          npm run tests
