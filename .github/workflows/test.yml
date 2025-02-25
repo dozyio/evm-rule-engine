@@ -33,19 +33,14 @@ jobs:
 
       - name: Start anvil instances, run tests, and clean up
         run: |
-          # Start anvil on port 8545 with chain-id 31337 in the background
           anvil --port 8545 --chain-id 31337 > anvil8545.log 2>&1 &
           ANVIL_8545_PID=$!
 
-          # Start anvil on port 8546 with chain-id 31338 in the background
           anvil --port 8546 --chain-id 31338 > anvil8546.log 2>&1 &
           ANVIL_8546_PID=$!
 
-          # Ensure that both anvil processes are killed when the script exits
           trap "kill $ANVIL_8545_PID $ANVIL_8546_PID" EXIT
 
-          # Give the anvil instances time to start up
           sleep 5
 
-          # Run your tests
-          npm run tests
+          npm run test
