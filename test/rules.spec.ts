@@ -1,6 +1,5 @@
 // test/rules.test.ts
 
-// import fs from 'fs'
 import { expect } from 'chai'
 import { ethers, type JsonRpcProvider } from 'ethers'
 import minimalArtifact from '../out/Minimal.sol/Minimal.json' with { type: 'json' }
@@ -24,7 +23,7 @@ import {
 import { type BuiltRule, type EngineConfig, type Network, type RuleDefinition } from '../src/types.js'
 
 /**
- * We'll assume anvil is running at http://127.0.0.1:8545 with some funded accounts.
+ * Assume anvil is running at http://127.0.0.1:8545 with some funded accounts.
  * `anvil --port 8545`
  */
 

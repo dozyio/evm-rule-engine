@@ -1,13 +1,10 @@
 // test/ruleEngine.test.ts
 
-// import fs from 'fs'
-// import path from 'path'
 import { expect } from 'chai'
 import { ethers, type JsonRpcProvider } from 'ethers'
 import { EVMRuleEngine } from '../src/EVMRuleEngine.js'
 import { addressIsEOA, contractBalance, createRulesFromDefinitions, numTransactions, walletBalance } from '../src/rules.js'
 import { type EngineConfig, type Rule, type RuleDefinition } from '../src/types.js'
-// import { rulesFromJsonFile } from '../src/utils'
 
 /**
  * We'll assume 2 anvil instances are running
