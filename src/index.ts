@@ -1,4 +1,4 @@
 // src/index.ts
-export * from './types'
-export * from './rules'
-export * from './EVMRuleEngine'
+export * from './types.js'
+export * from './rules.js'
+export * from './EVMRuleEngine.js'
