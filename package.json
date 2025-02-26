@@ -9,7 +9,6 @@
   "scripts": {
     "lint": "aegir lint",
     "build:contract": "forge build",
-    "test2": "npm run build:contract && mocha --require ts-node/register --timeout 10000 --bail 'test/*.spec.ts'",
     "test2:coverage": "npm run build:contract && nyc --reporter=html --reporter=text --reporter=lcov mocha --require ts-node/register --timeout 10000 --bail 'test/*.test.ts' && open coverage/index.html",
     "clean": "aegir clean",
     "build": "aegir build",
@@ -22,6 +21,7 @@
     "src",
     "dist",
     "!dist/test",
+    "!dist/out",
     "!**/*.tsbuildinfo"
   ],
   "dependencies": {
