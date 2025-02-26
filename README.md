@@ -72,7 +72,10 @@ const ruleDefinitions = [
 
 // Create rule instances from the JSON definitions and add them to the engine
 const rules = createRulesFromDefinitions(networks, ruleDefinitions)
-rules.forEach(rule => engine.addRule(rule))
+engine.addRules(rules)
+
+// Export rules as JSON definitions
+console.log(engine.exportRulesAsJson())
 ```
 
 ---
