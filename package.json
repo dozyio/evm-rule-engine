@@ -4,25 +4,20 @@
   "description": "A rule engine for EVM accounts and contracts",
   "author": "dozyio",
   "license": "Apache-2.0 OR MIT",
+  "homepage": "https://github.com/dozyio/evm-rule-engine#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dozyio/evm-rule-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dozyio/evm-rule-engine/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "type": "module",
   "types": "./dist/src/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
-    }
-  },
-  "scripts": {
-    "lint": "aegir lint",
-    "build:contract": "forge build",
-    "test2:coverage": "npm run build:contract && nyc --reporter=html --reporter=text --reporter=lcov mocha --require ts-node/register --timeout 10000 --bail 'test/*.test.ts' && open coverage/index.html",
-    "clean": "aegir clean",
-    "build": "aegir build",
-    "test": "npm run build:contract && aegir test",
-    "test:node": "npm run build:contract && aegir test -t node --cov",
-    "test:browser": "npm run build:contract && aegir test -t browser --cov",
-    "dep-check": "aegir dep-check"
-  },
   "files": [
     "src",
     "dist",
@@ -30,6 +25,119 @@
     "!dist/out",
     "!**/*.tsbuildinfo"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "eslintConfig": {
+    "extends": "ipfs",
+    "parserOptions": {
+      "project": true,
+      "sourceType": "module"
+    },
+    "ignorePatterns": [
+      "!.aegir.js",
+      "**/dist"
+    ]
+  },
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "conventionalcommits",
+          "releaseRules": [
+            {
+              "breaking": true,
+              "release": "major"
+            },
+            {
+              "revert": true,
+              "release": "patch"
+            },
+            {
+              "type": "feat",
+              "release": "minor"
+            },
+            {
+              "type": "fix",
+              "release": "patch"
+            },
+            {
+              "type": "docs",
+              "release": "patch"
+            },
+            {
+              "type": "test",
+              "release": "patch"
+            },
+            {
+              "type": "deps",
+              "release": "patch"
+            },
+            {
+              "scope": "no-release",
+              "release": false
+            }
+          ]
+        }
+      ],
+      [
+        "@semantic-release/release-notes-generator",
+        {
+          "preset": "conventionalcommits",
+          "presetConfig": {
+            "types": [
+              {
+                "type": "feat",
+                "section": "Features"
+              },
+              {
+                "type": "fix",
+                "section": "Bug Fixes"
+              },
+              {
+                "type": "chore",
+                "section": "Trivial Changes"
+              },
+              {
+                "type": "docs",
+                "section": "Documentation"
+              },
+              {
+                "type": "deps",
+                "section": "Dependencies"
+              },
+              {
+                "type": "test",
+                "section": "Tests"
+              }
+            ]
+          }
+        }
+      ],
+      "@semantic-release/changelog",
+      "@semantic-release/npm",
+      "@semantic-release/github",
+      "@semantic-release/git"
+    ]
+  },
+  "scripts": {
+    "lint": "aegir lint",
+    "build:contract": "forge build",
+    "clean": "aegir clean",
+    "build": "aegir build",
+    "test": "npm run build:contract && aegir test",
+    "test:node": "npm run build:contract && aegir test -t node --cov",
+    "test:browser": "npm run build:contract && aegir test -t browser --cov",
+    "dep-check": "aegir dep-check",
+    "release": "aegir release"
+  },
   "dependencies": {
     "@types/node": "^22.10.2",
     "ethers": "^6.13.4"
@@ -42,15 +150,5 @@
     "mocha": "^11.0.1",
     "nyc": "^17.1.0",
     "ts-node": "^10.9.2"
-  },
-  "eslintConfig": {
-    "extends": "ipfs",
-    "parserOptions": {
-      "sourceType": "module"
-    },
-    "ignorePatterns": [
-      "!.aegir.js",
-      "**/dist"
-    ]
   }
 }

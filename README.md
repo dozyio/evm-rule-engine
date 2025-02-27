@@ -2,6 +2,8 @@
 
 A lightweight and extensible rule engine for evaluating conditions on Ethereum Virtual Machine (EVM) accounts and contracts. Define custom rules to check wallet balances, contract balances, ERC-20 token holdings, transaction counts, NFT ownership, and more.
 
+Compatible with Node and browser environments.
+
 ---
 
 ## Features
@@ -17,6 +19,14 @@ A lightweight and extensible rule engine for evaluating conditions on Ethereum V
 
 ---
 
+## Install
+
+```sh
+npm install evm-rule-engine
+```
+
+---
+
 ## Usage
 
 ### Basic Example
@@ -25,7 +35,7 @@ The following example shows how to set up the rule engine, add a rule, and evalu
 
 ```typescript
 import { ethers } from 'ethers'
-import { EVMRuleEngine, walletBalance } from './src/EVMRuleEngine.js'
+import { EVMRuleEngine, walletBalance } from 'evm-rule-engine'
 
 // Configure the network (example using a local Anvil instance)
 const networks = [
@@ -47,7 +57,7 @@ engine.addRule(
 )
 
 // Evaluate all rules against a given address
-const address = '0xYourAddressHere'
+const address = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 engine.evaluate(address)
   .then(result => {
     console.log('Evaluation Result:', result)
@@ -62,11 +72,11 @@ engine.evaluate(address)
 Rules can also be defined in JSON format and loaded dynamically using the `createRulesFromDefinitions` function:
 
 ```typescript
-import { createRulesFromDefinitions } from './src/rules.js'
+import { createRulesFromDefinitions } from 'evm-rule-engine'
 
 // Define rule JSON objects
 const ruleDefinitions = [
-  { type: 'walletBalance', chainId: '31337', params: { value: '1000', compareType: 'gte' } },
+  { type: 'walletBalance', chainId: '31337', params: { value: ethers.parseEther('1'), compareType: 'gte' } },
   { type: 'numTransactions', chainId: '31338', params: { value: '5', compareType: 'gte' } }
 ]
 
@@ -90,7 +100,7 @@ This project uses [Mocha](https://mochajs.org/) and [Chai](https://www.chaijs.co
   anvil --port 8545 --chain-id 31337
   ```
 
-- (Optional) Start another instance on port 8546 with chain ID `31338`:
+- Start another instance on port 8546 with chain ID `31338`:
 
   ```bash
   anvil --port 8546 --chain-id 31338
@@ -99,7 +109,7 @@ This project uses [Mocha](https://mochajs.org/) and [Chai](https://www.chaijs.co
 Run the tests with:
 
 ```bash
-npm test
+npm run test
 ```
 
 ---
@@ -141,14 +151,3 @@ Contributions are welcome! Feel free to open issues or submit pull requests to i
 ## License
 
 This project is dual-licensed under the [Apache-2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT] license.
-
-
-# EVM Rule Engine
-
-## Testing
-
-```sh
-anvil --port 8545 --chain-id 31337
-anvil --port 8546 --chain-id 31338
-npm run test
-```

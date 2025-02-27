@@ -1,21 +1,15 @@
-# Compiler files
-cache/
-out/
-
-# Ignores development broadcast logs
-!/broadcast
-/broadcast/*/31337/
-/broadcast/**/dry-run/
-
-# Docs
-docs/
-
-# Dotenv file
-.env
-
-out/
-node_modules/
-coverage/
 .coverage/
+.docs
+.env
 .nyc_output/
+.tmp-compiled-docs
+build
+cache/
+coverage/
 dist/
+docs/
+node_modules/
+out/
+package-lock.json
+tsconfig-doc-check.aegir.json
+yarn.lock
