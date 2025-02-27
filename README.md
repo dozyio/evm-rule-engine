@@ -92,23 +92,23 @@ console.log(engine.exportRulesAsJson())
 
 ## Testing
 
-This project uses [Mocha](https://mochajs.org/) and [Chai](https://www.chaijs.com/) for testing. Some tests require one or more local Anvil instances. For example:
+This project uses [Mocha](https://mochajs.org/) and [Chai](https://www.chaijs.com/) for testing. Some tests require one or more local Anvil instances.
 
-- Start Anvil on port 8545 with chain ID `31337`:
+Start Anvil on port 8545 with chain ID `31337`:
 
-  ```bash
-  anvil --port 8545 --chain-id 31337
-  ```
+```sh
+anvil --port 8545 --chain-id 31337
+```
 
-- Start another instance on port 8546 with chain ID `31338`:
+Start another instance on port 8546 with chain ID `31338`:
 
-  ```bash
-  anvil --port 8546 --chain-id 31338
-  ```
+```sh
+anvil --port 8546 --chain-id 31338
+```
 
 Run the tests with:
 
-```bash
+```sh
 npm run test
 ```
 
@@ -120,23 +120,23 @@ npm run test
 
 If your rules interact with Solidity contracts, build them using Forge:
 
-```bash
+```sh
 npm run build:contract
 ```
 
 ### Linting and Building the Project
 
-- **Lint the Code:**
+**Lint the Code:**
 
-  ```bash
-  npm run lint
-  ```
+```sh
+npm run lint
+```
 
-- **Build the Project:**
+**Build the Project:**
 
-  ```bash
-  npm run build
-  ```
+```sh
+npm run build
+```
 
 Other scripts available in the [package.json](./package.json) include test coverage and dependency checks.
 
@@ -150,4 +150,4 @@ Contributions are welcome! Feel free to open issues or submit pull requests to i
 
 ## License
 
-This project is dual-licensed under the [Apache-2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT] license.
+This project is dual-licensed under the [Apache-2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT) license.
