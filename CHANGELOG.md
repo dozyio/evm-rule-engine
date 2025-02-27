@@ -1,3 +1,10 @@
+## [0.0.5](https://github.com/dozyio/evm-rule-engine/compare/v0.0.4...v0.0.5) (2025-02-27)
+
+### Trivial Changes
+
+* release ([e335c34](https://github.com/dozyio/evm-rule-engine/commit/e335c34fa5e89b95c8c796b285fabb2e8490d104))
+* release on chore ([13100cb](https://github.com/dozyio/evm-rule-engine/commit/13100cbb5ca30b056c42e440fd468302122e1e28))
+
 ## [0.0.4](https://github.com/dozyio/evm-rule-engine/compare/v0.0.3...v0.0.4) (2025-02-27)
 
 ### Trivial Changes
