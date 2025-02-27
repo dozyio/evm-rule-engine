@@ -1,9 +1,9 @@
 // src/EVMRuleEngine.ts
-import { type BuiltRule, type EngineConfig, type EvaluateResult, type Network } from './types.js'
+import { type BuiltRule, type EngineConfig, type EvaluateResult, type Networks } from './types.js'
 
 export class EVMRuleEngine {
   private readonly rules: BuiltRule[] = []
-  private readonly networks: Network[] = []
+  private readonly networks: Networks = []
 
   constructor (config: EngineConfig, rules: BuiltRule | BuiltRule[] = []) {
     if (config.networks === undefined || config.networks.length === 0) {

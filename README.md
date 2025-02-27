@@ -35,10 +35,10 @@ The following example shows how to set up the rule engine, add a rule, and evalu
 
 ```typescript
 import { ethers } from 'ethers'
-import { EVMRuleEngine, walletBalance } from 'evm-rule-engine'
+import { EVMRuleEngine, walletBalance, Networks } from 'evm-rule-engine'
 
 // Configure the network (example using a local Anvil instance)
-const networks = [
+const networks: Networks = [
   {
     provider: new ethers.JsonRpcProvider('http://127.0.0.1:8545'),
     chainId: '31337'
@@ -76,8 +76,7 @@ import { createRulesFromDefinitions } from 'evm-rule-engine'
 
 // Define rule JSON objects
 const ruleDefinitions = [
-  { type: 'walletBalance', chainId: '31337', params: { value: ethers.parseEther('1'), compareType: 'gte' } },
-  { type: 'numTransactions', chainId: '31338', params: { value: '5', compareType: 'gte' } }
+  { type: 'walletBalance', chainId: '31337', params: { value: ethers.parseEther('1'), compareType: 'gte' } }
 ]
 
 // Create rule instances from the JSON definitions and add them to the engine

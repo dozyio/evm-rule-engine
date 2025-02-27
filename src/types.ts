@@ -35,6 +35,8 @@ export interface Network {
   chainId: string
 }
 
+export type Networks = Network[]
+
 export interface EngineConfig {
-  networks: Network[]
+  networks: Networks
 }
