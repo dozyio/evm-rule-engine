@@ -1,3 +1,9 @@
+## [0.0.6](https://github.com/dozyio/evm-rule-engine/compare/v0.0.5...v0.0.6) (2025-02-27)
+
+### Trivial Changes
+
+* update readme ([6fa0e94](https://github.com/dozyio/evm-rule-engine/commit/6fa0e94a491853c05e359004581172a9cb640477))
+
 ## [0.0.5](https://github.com/dozyio/evm-rule-engine/compare/v0.0.4...v0.0.5) (2025-02-27)
 
 ### Trivial Changes
