@@ -1,13 +1,16 @@
-name: release
+name: Test
 
 on:
   push:
-    tags:
-      - "*"
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FOUNDRY_PROFILE: ci
 
 jobs:
-  release:
-    name: release
+  test:
+    name: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +44,22 @@ jobs:
           sleep 5
 
           npm run test
+
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: build
+        run: npm run build
 
       - name: release
         run: npm run release
