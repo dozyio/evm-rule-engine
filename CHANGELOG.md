@@ -1,3 +1,9 @@
+## [0.0.7](https://github.com/dozyio/evm-rule-engine/compare/v0.0.6...v0.0.7) (2025-03-08)
+
+### Trivial Changes
+
+* bump deps, remove cruft from dependabot ([38b5013](https://github.com/dozyio/evm-rule-engine/commit/38b501305576274ce3093ad663ce33592569c36d))
+
 ## [0.0.6](https://github.com/dozyio/evm-rule-engine/compare/v0.0.5...v0.0.6) (2025-02-27)
 
 ### Trivial Changes
