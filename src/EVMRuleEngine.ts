@@ -1,6 +1,7 @@
 // src/EVMRuleEngine.ts
+import { z } from 'zod'
 import { type BuiltRule, type EngineConfig, type EvaluateResult, type Networks } from './types.js'
-import { builtRuleSchema, validateRules } from './validator.js'
+import { builtRuleSchema, ruleDefinitionSchema } from './validator.js'
 
 export class EVMRuleEngine {
   private readonly rules: BuiltRule[] = []
@@ -36,33 +37,6 @@ export class EVMRuleEngine {
       this.validateBuiltRule(r)
     })
     this.rules.push(...rules)
-  }
-
-  /**
-   * Validation rules
-   */
-  public validateBuiltRule (r: BuiltRule): void {
-    try {
-      builtRuleSchema.parse(r)
-    } catch (err: any) {
-      // Aggregate the error messages from Zod and throw a single error.
-      throw new Error('invalid rule - ' + err.errors.map((e: any) => e.message).join(', '))
-    }
-
-    if (!this.hasNetwork(r.definition.chainId)) {
-      throw new Error(`invalid rule - network ${r.definition.chainId} not configured`)
-    }
-    // if (r.rule === undefined || typeof r.rule !== 'function') {
-    //   throw new Error('invalid rule - rule missing')
-    // }
-    //
-    // if (r.definition === undefined || typeof r.definition !== 'object') {
-    //   throw new Error('invalid rule - definition missing')
-    // }
-
-    if (!this.hasNetwork(r.definition.chainId)) {
-      throw new Error(`invalid rule - network ${r.definition.chainId} not configured`)
-    }
   }
 
   private hasNetwork (chainId: string): boolean {
@@ -122,13 +96,42 @@ export class EVMRuleEngine {
   }
 
   /**
-   * Validates that a JSON string is a valid rule set
+   * Validation helpers
    */
+  private validateNetwork (chainId: string): void {
+    if (!this.hasNetwork(chainId)) {
+      throw new Error(`invalid rule - network ${chainId} not configured`)
+    }
+  }
+
+  public validateBuiltRule (rule: BuiltRule): void {
+    const result = builtRuleSchema.safeParse(rule)
+    if (!result.success) {
+      const errorMsg = result.error.errors.map(e => e.message).join(', ')
+      throw new Error(`invalid rule - ${errorMsg}`)
+    }
+
+    this.validateNetwork(rule.definition.chainId)
+  }
+
   public validateRulesJsonString (rules: string): boolean {
     try {
-      const r = JSON.parse(rules)
-      return validateRules(r)
-    } catch (error) {
+      const parsed = JSON.parse(rules)
+      return this.validateRules(parsed)
+    } catch {
+      return false
+    }
+  }
+
+  public validateRules (rules: object): boolean {
+    try {
+      const rulesArray = z.array(ruleDefinitionSchema).parse(rules)
+
+      for (const rule of rulesArray) {
+        this.validateNetwork(rule.chainId)
+      }
+      return true
+    } catch {
       return false
     }
   }

@@ -116,13 +116,3 @@ export const builtRuleSchema: z.ZodSchema<BuiltRule> = z.object({
 })
 
 export const rulesDefinitionArraySchema = z.array(ruleDefinitionSchema)
-
-export function validateRules (rawRules: object): boolean {
-  try {
-    const rulesDefinitionArraySchema = z.array(ruleDefinitionSchema)
-    rulesDefinitionArraySchema.parse(rawRules)
-    return true
-  } catch (error) {
-    return false
-  }
-}
