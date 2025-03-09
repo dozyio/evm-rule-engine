@@ -1,3 +1,9 @@
+## [0.3.1](https://github.com/dozyio/evm-rule-engine/compare/v0.3.0...v0.3.1) (2025-03-09)
+
+### Trivial Changes
+
+* getRuleDefinitions returns RuleDefinition[] ([468d3af](https://github.com/dozyio/evm-rule-engine/commit/468d3af81828165cd878f6c377fbbddb8ce43c75))
+
 ## [0.3.0](https://github.com/dozyio/evm-rule-engine/compare/v0.2.0...v0.3.0) (2025-03-09)
 
 ### Features

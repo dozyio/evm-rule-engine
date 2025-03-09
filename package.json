@@ -1,6 +1,6 @@
 {
   "name": "evm-rule-engine",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A rule engine for EVM accounts and contracts",
   "author": "dozyio",
   "license": "Apache-2.0 OR MIT",
