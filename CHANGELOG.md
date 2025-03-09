@@ -1,3 +1,9 @@
+## [0.1.0](https://github.com/dozyio/evm-rule-engine/compare/v0.0.7...v0.1.0) (2025-03-09)
+
+### Features
+
+* exportRulesAsJson -> exportRulesAsJsonString ([f3c7922](https://github.com/dozyio/evm-rule-engine/commit/f3c79220d795ce3d65d7993ea25b08b534a73405))
+
 ## [0.0.7](https://github.com/dozyio/evm-rule-engine/compare/v0.0.6...v0.0.7) (2025-03-08)
 
 ### Trivial Changes
