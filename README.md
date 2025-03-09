@@ -84,7 +84,7 @@ const rules = createRulesFromDefinitions(networks, ruleDefinitions)
 engine.addRules(rules)
 
 // Export rules as JSON definitions
-console.log(engine.exportRulesAsJson())
+console.log(engine.exportRulesAsJsonString())
 ```
 
 ---

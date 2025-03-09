@@ -206,7 +206,7 @@ describe('Rule Engine', function () {
 
       const engine = new EVMRuleEngine(engineConfig)
       engine.addRules(createRulesFromDefinitions(engineConfig.networks, mockJson))
-      const exportedJson = engine.exportRulesAsJson()
+      const exportedJson = engine.exportRulesAsJsonString()
 
       // console.log(exportedJson)
       expect(JSON.parse(exportedJson)).to.deep.equal(mockJson)

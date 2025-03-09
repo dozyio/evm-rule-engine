@@ -105,8 +105,8 @@ export class EVMRuleEngine {
   /**
    * Return the definitions as a JSON string.
    */
-  public exportRulesAsJson (indent: number = 2): string {
+  public exportRulesAsJsonString (): string {
     const definitions = this.getRuleDefinitions()
-    return JSON.stringify(definitions, null, indent)
+    return JSON.stringify(definitions)
   }
 }
