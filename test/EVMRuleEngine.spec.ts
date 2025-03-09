@@ -211,20 +211,5 @@ describe('Rule Engine', function () {
       // console.log(exportedJson)
       expect(JSON.parse(exportedJson)).to.deep.equal(mockJson)
     })
-
-    // it('should throw if loaded rules are invalid', async function () {
-    //   const tempJsonPath = path.join(__dirname, 'tempRules.json')
-    //   const mockJson = JSON.stringify([
-    //     { type: 'walletBalance', chainId: CHAIN_ID_0, params: {} } // missing value/compareType
-    //   ])
-    //
-    //   // Write a temporary JSON file for testing
-    //   fs.writeFileSync(tempJsonPath, mockJson, 'utf8')
-    //
-    //   expect(() => rulesFromJsonFile(engineConfig.networks, tempJsonPath)).to.throw('`value` is required')
-    //
-    //   // Clean up
-    //   fs.unlinkSync(tempJsonPath)
-    // })
   })
 })

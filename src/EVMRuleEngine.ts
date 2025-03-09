@@ -1,5 +1,6 @@
 // src/EVMRuleEngine.ts
 import { type BuiltRule, type EngineConfig, type EvaluateResult, type Networks } from './types.js'
+import { builtRuleSchema, validateRules } from './validator.js'
 
 export class EVMRuleEngine {
   private readonly rules: BuiltRule[] = []
@@ -23,7 +24,7 @@ export class EVMRuleEngine {
    * Add a single BuiltRule.
    */
   public addRule (rule: BuiltRule): void {
-    this.validateRule(rule)
+    this.validateBuiltRule(rule)
     this.rules.push(rule)
   }
 
@@ -32,7 +33,7 @@ export class EVMRuleEngine {
    */
   public addRules (rules: BuiltRule[]): void {
     rules.forEach(r => {
-      this.validateRule(r)
+      this.validateBuiltRule(r)
     })
     this.rules.push(...rules)
   }
@@ -40,14 +41,24 @@ export class EVMRuleEngine {
   /**
    * Validation rules
    */
-  public validateRule (r: BuiltRule): void {
-    if (r.rule === undefined || typeof r.rule !== 'function') {
-      throw new Error('invalid rule - rule missing')
+  public validateBuiltRule (r: BuiltRule): void {
+    try {
+      builtRuleSchema.parse(r)
+    } catch (err: any) {
+      // Aggregate the error messages from Zod and throw a single error.
+      throw new Error('invalid rule - ' + err.errors.map((e: any) => e.message).join(', '))
     }
 
-    if (r.definition === undefined || typeof r.definition !== 'object') {
-      throw new Error('invalid rule - definition missing')
+    if (!this.hasNetwork(r.definition.chainId)) {
+      throw new Error(`invalid rule - network ${r.definition.chainId} not configured`)
     }
+    // if (r.rule === undefined || typeof r.rule !== 'function') {
+    //   throw new Error('invalid rule - rule missing')
+    // }
+    //
+    // if (r.definition === undefined || typeof r.definition !== 'object') {
+    //   throw new Error('invalid rule - definition missing')
+    // }
 
     if (!this.hasNetwork(r.definition.chainId)) {
       throw new Error(`invalid rule - network ${r.definition.chainId} not configured`)
@@ -108,5 +119,17 @@ export class EVMRuleEngine {
   public exportRulesAsJsonString (): string {
     const definitions = this.getRuleDefinitions()
     return JSON.stringify(definitions)
+  }
+
+  /**
+   * Validates that a JSON string is a valid rule set
+   */
+  public validateRulesJsonString (rules: string): boolean {
+    try {
+      const r = JSON.parse(rules)
+      return validateRules(r)
+    } catch (error) {
+      return false
+    }
   }
 }
