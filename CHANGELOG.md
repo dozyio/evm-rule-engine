@@ -1,3 +1,9 @@
+## [0.3.2](https://github.com/dozyio/evm-rule-engine/compare/v0.3.1...v0.3.2) (2025-03-09)
+
+### Trivial Changes
+
+* export validation ([0bb56de](https://github.com/dozyio/evm-rule-engine/commit/0bb56de2d0f4a9702b5b712d9154f108c8686676))
+
 ## [0.3.1](https://github.com/dozyio/evm-rule-engine/compare/v0.3.0...v0.3.1) (2025-03-09)
 
 ### Trivial Changes
