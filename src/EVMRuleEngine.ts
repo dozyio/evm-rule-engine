@@ -1,6 +1,6 @@
 // src/EVMRuleEngine.ts
 import { z } from 'zod'
-import { type BuiltRule, type EngineConfig, type EvaluateResult, type Networks } from './types.js'
+import { type BuiltRule, type EngineConfig, type EvaluateResult, type Networks, type RuleDefinition } from './types.js'
 import { builtRuleSchema, ruleDefinitionSchema } from './validator.js'
 
 export class EVMRuleEngine {
@@ -76,7 +76,7 @@ export class EVMRuleEngine {
   /**
    * Return the definitions of all rules.
    */
-  public getRuleDefinitions (): Array<Record<string, any>> {
+  public getRuleDefinitions (): RuleDefinition[] {
     return this.rules.map((br) => {
       const { type, params, chainId } = br.definition
       return {
