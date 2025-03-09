@@ -1,3 +1,9 @@
+## [0.3.0](https://github.com/dozyio/evm-rule-engine/compare/v0.2.0...v0.3.0) (2025-03-09)
+
+### Features
+
+* validateRules ([166d2d8](https://github.com/dozyio/evm-rule-engine/commit/166d2d88104c33422db0ab80f811c85abe69a948))
+
 ## [0.2.0](https://github.com/dozyio/evm-rule-engine/compare/v0.1.0...v0.2.0) (2025-03-09)
 
 ### Features
