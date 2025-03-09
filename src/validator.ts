@@ -46,6 +46,16 @@ const callContractParamsSchema = z.object({
   compareType: compareTypeSchema
 })
 
+const ruleResultSchema = z.object({
+  name: z.string(),
+  success: z.boolean(),
+  error: z.string().optional()
+})
+
+const ruleFunctionSchema = z.function()
+  .args(z.string().optional())
+  .returns(z.union([ruleResultSchema, z.promise(ruleResultSchema)]))
+
 // A discriminated union based on the "type" property
 export const ruleDefinitionSchema = z.discriminatedUnion('type', [
   z.object({
@@ -99,16 +109,6 @@ export const ruleDefinitionSchema = z.discriminatedUnion('type', [
     params: z.object({})
   })
 ])
-
-const ruleResultSchema = z.object({
-  name: z.string(),
-  success: z.boolean(),
-  error: z.string().optional()
-})
-
-const ruleFunctionSchema = z.function()
-  .args(z.string().optional())
-  .returns(z.union([ruleResultSchema, z.promise(ruleResultSchema)]))
 
 export const builtRuleSchema: z.ZodSchema<BuiltRule> = z.object({
   rule: ruleFunctionSchema,
