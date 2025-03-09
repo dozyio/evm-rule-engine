@@ -1,3 +1,9 @@
+## [0.2.0](https://github.com/dozyio/evm-rule-engine/compare/v0.1.0...v0.2.0) (2025-03-09)
+
+### Features
+
+* add zod validation ([a15a41a](https://github.com/dozyio/evm-rule-engine/commit/a15a41a9bfe2d4721a16f07795ce469010c614ec))
+
 ## [0.1.0](https://github.com/dozyio/evm-rule-engine/compare/v0.0.7...v0.1.0) (2025-03-09)
 
 ### Features
