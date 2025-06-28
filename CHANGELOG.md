@@ -1,3 +1,16 @@
+## [0.3.3](https://github.com/dozyio/evm-rule-engine/compare/v0.3.2...v0.3.3) (2025-06-28)
+
+### Trivial Changes
+
+* bump @types/chai from 5.2.0 to 5.2.2 ([b214e96](https://github.com/dozyio/evm-rule-engine/commit/b214e966b5ddaae4d0042f7d549e1f4719189d4d))
+* bump @types/node from 22.13.10 to 24.0.4 ([e201529](https://github.com/dozyio/evm-rule-engine/commit/e201529d9121fd43e2adbf8fdac027039dfc629e))
+* bump mocha from 11.1.0 to 11.7.1 ([78b202c](https://github.com/dozyio/evm-rule-engine/commit/78b202ca85553d2beec92f98b6e83d04a488d04e))
+
+### Dependencies
+
+* bump ethers from 6.13.5 to 6.14.4 ([c80dfcd](https://github.com/dozyio/evm-rule-engine/commit/c80dfcd3912b85b480e8ac73f09e2b7d5241a192))
+* bump zod from 3.24.2 to 3.25.67 ([2ff9f42](https://github.com/dozyio/evm-rule-engine/commit/2ff9f425e50735121c2771bcbfc436cb88a495d8))
+
 ## [0.3.2](https://github.com/dozyio/evm-rule-engine/compare/v0.3.1...v0.3.2) (2025-03-09)
 
 ### Trivial Changes
